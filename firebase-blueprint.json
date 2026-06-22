@@ -1,0 +1,41 @@
+{
+  "database": {
+    "collections": {
+      "we_config": {
+        "description": "General configuration parameters including global KPI targets and announcements.",
+        "documents": {
+          "general": {
+            "targets": {
+              "type": "object",
+              "description": "KPI targets configuration"
+            },
+            "bannerNotice": {
+              "type": "string",
+              "description": "Moving announcement ticker text"
+            },
+            "updatedAt": {
+              "type": "string",
+              "description": "ISO timestamp of the last database modification"
+            }
+          }
+        }
+      },
+      "employees": {
+        "description": "Detailed digital chat team employee records and monthly performance evaluations.",
+        "documents": {
+          "44672": {
+            "id": { "type": "string" },
+            "fullName": { "type": "string" },
+            "newTL": { "type": "string" },
+            "newSV": { "type": "string" },
+            "mobileNumber": { "type": "string" },
+            "nationalId": { "type": "string" },
+            "location": { "type": "string" },
+            "lob": { "type": "string" },
+            "performance": { "type": "array" }
+          }
+        }
+      }
+    }
+  }
+}

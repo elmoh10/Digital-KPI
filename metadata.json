@@ -1,0 +1,6 @@
+{
+  "name": "WE Digital KPI Portal",
+  "description": "An elegant, interactive workspace designed with Telecom Egypt (WE) branding, tailored for tracking employee monthly performance metrics, team leader reports, and administrative KPI uploading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

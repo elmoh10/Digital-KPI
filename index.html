@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ar">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WE KPI Portal - بوابة تقييم الأداء والمؤشرات</title>
+    <style>
+      /* Custom non-blocking warning toast */
+      #security-toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(150px);
+        background: rgba(15, 10, 22, 0.95);
+        color: #ffffff;
+        border: 1px solid #d11270;
+        border-radius: 16px;
+        padding: 12px 24px;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 15px rgba(209, 18, 112, 0.2);
+        z-index: 99999;
+        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+        opacity: 0;
+        pointer-events: none;
+        direction: rtl;
+        text-align: center;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      #security-toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="security-toast">
+      <span style="font-size: 16px;">⚠️</span>
+      <span>تنبيه أمني: هذا النظام محمي بالكامل ضد سرقة أو استعراض الأكواد البرمجية.</span>
+    </div>
+
+    <!-- Multi-layered Code Protection Script -->
+    <script>
+      (function() {
+        // Toast visual notifier
+        function showSecurityToast() {
+          const toast = document.getElementById('security-toast');
+          if (toast) {
+            toast.classList.add('show');
+            setTimeout(() => {
+              toast.classList.remove('show');
+            }, 3500);
+          }
+        }
+
+        // 1. Prevent Right Click Context Menu
+        document.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          showSecurityToast();
+        });
+
+        // 2. Block inspection hotkeys
+        document.addEventListener('keydown', function(e) {
+          if (
+            e.keyCode === 123 || // F12
+            (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Ctrl+Shift+I/J/C
+            (e.metaKey && e.altKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) || // Cmd+Alt+I/J/C on Mac
+            (e.ctrlKey && e.keyCode === 85) || // Ctrl+U (source)
+            (e.metaKey && e.keyCode === 85) || // Cmd+U
+            (e.ctrlKey && e.keyCode === 83) || // Ctrl+S (save page)
+            (e.metaKey && e.keyCode === 83)    // Cmd+S
+          ) {
+            e.preventDefault();
+            showSecurityToast();
+          }
+        });
+
+        // 3. Proactive Anti-Debugging loop (runs only when DevTools would be open)
+        const securityLoop = function() {
+          function disableDebugger() {
+            try {
+              (function() {
+                return function(code) {}
+              })().constructor("debugger")();
+            } catch (err) {}
+          }
+          setInterval(disableDebugger, 200);
+        };
+        
+        try {
+          securityLoop();
+        } catch (e) {}
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

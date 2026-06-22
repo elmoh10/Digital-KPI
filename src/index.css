@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Space Grotesk", sans-serif;
+  --color-we-purple: #4c005c;
+  --color-we-purple-light: #6d0a80;
+  --color-we-pink: #d11270;
+  --color-we-pink-light: #f43f5e;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark {
+  /* Dynamic overrides for standard Tailwind CSS slate & white variables for an immersive, eye-safe dark mode */
+  --color-white: #171224;        /* Primary card, block, and dashboard module backgrounds */
+  --color-slate-50: #0d0a16;     /* Full page canvas backdrop - very sleek dark purple-tinted charcoal */
+  --color-slate-100: #251c38;    /* Thin borders, card outlines, and dividers */
+  --color-slate-200: #34284d;    /* Selected tabs, interactive active borders */
+  --color-slate-300: #433363;    /* Hover backgrounds for interactive components */
+  --color-slate-400: #56427e;    /* Empty block states, secondary backdrops */
+
+  /* Premium high-contrast text layers ensuring outstanding legibility */
+  --color-slate-900: #ffffff;    /* Absolute prominence: headings, main metrics, key titles */
+  --color-slate-800: #f8fafc;    /* Standard textual items: lists, active inputs, main labels */
+  --color-slate-700: #f1f5f9;    /* Secondary details, active body text, field inputs */
+  --color-slate-600: #e2e8f0;    /* Standard description text labels */
+  --color-slate-500: #cbd5e1;    /* Muted status texts, helper guidelines, table column headers */
+  --color-slate-400: #94a3b8;    /* Subtitle information, tiny timestamps */
+
+  /* Vibrant, glowing WE brand colors optimized for dark backdrops to prevent visual stress */
+  --color-we-purple: #c084fc;     /* Highly legible radiant violet */
+  --color-we-purple-light: #e9d5ff;
+  --color-we-pink: #f43f5e;       /* Clear high-contrast pink */
+  --color-we-pink-light: #fda4af;
+
+  color-scheme: dark;
+}
+
+/* Enable transitions for colors when toggling dark mode */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+.dark input, 
+.dark select, 
+.dark textarea {
+  color-scheme: dark;
+}
+
+/* Print Layout Optimization for Beautiful Vector PDFs */
+@media print {
+  /* Enforce light background and dark text for clean, economical printing */
+  html, body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide headers, footers, sidebars, selectors and utility items */
+  header, footer, #navigation-tabs, .no-print, #kpi-control-bar, #kpi-search-column, button {
+    display: none !important;
+  }
+
+  /* Ensure container fills the full page width */
+  #primary-app-container {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #kpi-main-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+  }
+
+  #kpi-dashboard-area {
+    grid-column: span 12 / span 12 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  #dashboard-tab-content {
+    margin-top: 0 !important;
+  }
+
+  /* Unhide printable headers */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Keep cards crisp with simple borders instead of heavy shadows */
+  .bg-white, .dark .bg-white {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure text is clearly visible irrespective of dark mode active overrides */
+  h1, h2, h3, h4, .text-slate-800, .text-slate-700, .text-slate-900 {
+    color: #0f172a !important;
+  }
+
+  .text-slate-400, .text-slate-500 {
+    color: #475569 !important;
+  }
+
+  /* Color highlights during print */
+  .bg-emerald-50, .text-emerald-600 {
+    background-color: #f0fdf4 !important;
+    color: #166534 !important;
+  }
+
+  .bg-rose-50, .text-rose-600 {
+    background-color: #fff1f2 !important;
+    color: #9f1239 !important;
+  }
+
+  /* Force charts/gauges to be fully rendered inside the print stream */
+  svg, circle {
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+}
+
+/* Rolling Marquee Animation styling */
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-marquee-scroll {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee-scroll 22s linear infinite;
+  padding-left: 20%;
+}
+
+.animate-marquee-scroll:hover {
+  animation-play-state: paused;
+}
+
+
+
