@@ -52,6 +52,33 @@ export interface EmpMappingConfig {
   lobIdx: number;
 }
 
+export interface NpsMappingConfig {
+  idIdx: number;
+  npsIdx: number;
+  fcrIdx: number;
+  ttbIdx: number;
+}
+
+export function parsePercentageVal(cellVal: string, defaultVal = 0): number {
+  if (!cellVal) return defaultVal;
+  const hasPercentSign = cellVal.includes("%");
+  const cleanedStr = cellVal.replace("%", "").trim();
+  const num = parseFloat(cleanedStr);
+  if (isNaN(num)) return defaultVal;
+
+  if (hasPercentSign) {
+    return num;
+  }
+
+  if (num > 0 && num <= 2.5 && cellVal.includes(".")) {
+    return Math.round(num * 1000) / 10;
+  }
+  if (num === 1 && !cellVal.includes(".")) {
+    return 100;
+  }
+  return num;
+}
+
 export function getExcelColumnLabel(index: number): string {
   let label = "";
   let temp = index;
@@ -82,9 +109,22 @@ export default function AdminPanel({
 
   // Cloud Live Notice Ticker state
   const [localNotice, setLocalNotice] = useState(bannerNotice);
+  
   useEffect(() => {
-    setLocalNotice(bannerNotice);
+    // Only update local notice from cloud if we are not actively editing it
+    if (localNotice !== bannerNotice && document.activeElement?.id !== 'notice-textarea') {
+      setLocalNotice(bannerNotice);
+    }
   }, [bannerNotice]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localNotice !== bannerNotice) {
+        onUpdateBannerNotice(localNotice);
+      }
+    }, 600);
+    return () => clearTimeout(handler);
+  }, [localNotice]);
 
   // Control tabs in Admin Dashboard
   const [adminTab, setAdminTab] = useState<"upload" | "employees" | "targets">("upload");
@@ -178,6 +218,18 @@ export default function AdminPanel({
   const [detectedEmpHeaders, setDetectedEmpHeaders] = useState<string[]>([]);
   const [empHeaderRowsCount, setEmpHeaderRowsCount] = useState<number>(0);
 
+  // Interactive NPS Mapping State
+  const [pendingNpsRows, setPendingNpsRows] = useState<string[][] | null>(null);
+  const [pendingNpsMonth, setPendingNpsMonth] = useState<string>("");
+  const [npsMapping, setNpsMapping] = useState<NpsMappingConfig>({
+    idIdx: 0,
+    npsIdx: 5, // F
+    fcrIdx: 6, // G
+    ttbIdx: 7, // H
+  });
+  const [detectedNpsHeaders, setDetectedNpsHeaders] = useState<string[]>([]);
+  const [npsHeaderRowsCount, setNpsHeaderRowsCount] = useState<number>(0);
+
   // Selected Employee for manual KPI entry
   const [kpiEmployeeId, setKpiEmployeeId] = useState("");
   const [manualKpi, setManualKpi] = useState<MonthlyPerformance>({
@@ -226,6 +278,16 @@ export default function AdminPanel({
     title: "",
     message: "",
     type: "info",
+  });
+
+  const [resetDialogState, setResetDialogState] = useState<{
+    isOpen: boolean;
+    mode: "all" | "employees_only" | "kpi_month" | "nps_month";
+    selectedMonth: string;
+  }>({
+    isOpen: false,
+    mode: "all",
+    selectedMonth: "Jan-25"
   });
 
   const handleLogin = (e: React.FormEvent) => {
@@ -338,27 +400,70 @@ export default function AdminPanel({
   };
 
   const handleResetToDefault = () => {
-    setDialogConfirm({
-      isOpen: true,
-      title: "استعادة تهيئة المصنع الأصلية",
-      message: "تحذير هام: سيتم استعادة البيانات الافتراضية الأصلية للشركة وتصفير أو حذف أي بيانات مخصصة أو موظفين مضافين حالياً. هل ترغب في المتابعة؟",
-      confirmText: "نعم، استعد وباشر التصفير",
-      cancelText: "إلغاء الأمر",
-      theme: "rose",
-      onConfirm: () => {
+    setResetDialogState(prev => ({ ...prev, isOpen: true }));
+  };
+
+  const executeAdvancedReset = () => {
+    switch (resetDialogState.mode) {
+      case "all":
         onUpdateEmployees(INITIAL_EMPLOYEES);
         onUpdateTargets(DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS);
         setTargetFormChat(DEFAULT_KPI_TARGETS);
         setTargetFormUniversal(DEFAULT_KPI_TARGETS);
-        setDialogConfirm(prev => ({ ...prev, isOpen: false }));
         setDialogAlert({
           isOpen: true,
           title: "تمت العملية بنجاح",
           message: "تمت استعادة التهيئة الأصلية لمشروعات الدعم الفني وتصفير البيانات المخصصة بنجاح!",
           type: "success"
         });
+        break;
+      case "employees_only":
+        onUpdateEmployees([]);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: "تم مسح كافة الموظفين من سجلات المنظومة.",
+          type: "success"
+        });
+        break;
+      case "kpi_month": {
+        const updatedEmps = employees.map(emp => ({
+          ...emp,
+          performance: emp.performance.map(p => 
+            p.month === resetDialogState.selectedMonth
+              ? { ...p, aht: "00:00", csi: 0, ctc: 0, ctb: 0, absent: 0, sick: 0, emergency: 0, unplanned: 0, finalScore: 0 }
+              : p
+          )
+        }));
+        onUpdateEmployees(updatedEmps);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات KPI לשشهر ${resetDialogState.selectedMonth} لجميع الموظفين.`,
+          type: "success"
+        });
+        break;
       }
-    });
+      case "nps_month": {
+        const updatedEmps2 = employees.map(emp => ({
+          ...emp,
+          performance: emp.performance.map(p => 
+            p.month === resetDialogState.selectedMonth
+              ? { ...p, nps: 0, fcr: 0, ttb: 0 }
+              : p
+          )
+        }));
+        onUpdateEmployees(updatedEmps2);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات الاستطلاعات و NPS لشهر ${resetDialogState.selectedMonth} لجميع الموظفين.`,
+          type: "success"
+        });
+        break;
+      }
+    }
+    setResetDialogState(prev => ({ ...prev, isOpen: false }));
   };
 
   // Excel TSV Raw Parser for three modes: Employees, KPIs, NPS
@@ -1125,17 +1230,6 @@ export default function AdminPanel({
       let matchedCount = 0;
       let draftedCount = 0;
 
-      const parsePercentageVal = (cellVal: string, defaultVal = 0): number => {
-        if (!cellVal) return defaultVal;
-        const cleanedStr = cellVal.replace("%", "").trim();
-        const num = parseFloat(cleanedStr);
-        if (isNaN(num)) return defaultVal;
-        if (num > 0 && num <= 1 && cellVal.includes(".")) {
-          return Math.round(num * 100);
-        }
-        return num;
-      };
-
       rows.forEach(row => {
         let id = row[kpiMapping.idIdx]?.trim() || "";
         if (id.endsWith(".0")) {
@@ -1250,6 +1344,161 @@ export default function AdminPanel({
     }
   };
 
+  const processRawNpsMatrix = (rawRows: string[][], selectedMonth: string) => {
+    // Heuristic function to detect if a row is a header row
+    const isHeaderRow = (rowFields: string[]): boolean => {
+      if (rowFields.length === 0) return false;
+      const headerKeywords = [
+        "id", "code", "كود", "num", "رقم",
+        "nps", "tnps", "fcr", "ttb", "توصية", "الاستطلاع"
+      ];
+      let matchCount = 0;
+      let nonNumericCount = 0;
+      let filledCount = 0;
+      rowFields.forEach(cell => {
+        const c = cell.toLowerCase().trim();
+        if (!c) return;
+        filledCount++;
+        if (isNaN(Number(c)) || c === "") {
+          nonNumericCount++;
+        }
+        if (headerKeywords.some(keyword => c.includes(keyword))) {
+          matchCount++;
+        }
+      });
+      if (filledCount === 0) return false;
+      return (matchCount >= 2) || (nonNumericCount / filledCount > 0.6 && filledCount >= 2);
+    };
+
+    let npsHeaderRowsCountIdx = 0;
+    for (let i = 0; i < Math.min(rawRows.length, 3); i++) {
+      if (isHeaderRow(rawRows[i])) {
+        npsHeaderRowsCountIdx = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    const numCols = Math.max(...rawRows.map(r => r.length));
+    const combinedHeaders: string[] = Array(numCols).fill("");
+    if (npsHeaderRowsCountIdx > 0) {
+      for (let c = 0; c < numCols; c++) {
+        const tokens: string[] = [];
+        for (let r = 0; r < npsHeaderRowsCountIdx; r++) {
+          const cell = rawRows[r][c]?.trim();
+          if (cell) tokens.push(cell);
+        }
+        combinedHeaders[c] = tokens.join(" ").trim();
+      }
+    }
+
+    let idIdx = 0;
+    let npsIdx = 5;
+    let fcrIdx = 6;
+    let ttbIdx = 7;
+
+    if (npsHeaderRowsCountIdx > 0) {
+      combinedHeaders.forEach((h, i) => {
+        const norm = h.toLowerCase();
+        if (norm === "id" || norm === "كود" || norm.includes("id") || norm.includes("كود")) idIdx = i;
+        else if (norm === "nps" || norm.includes("nps") || norm.includes("توصية")) npsIdx = i;
+        else if (norm === "fcr" || norm.includes("fcr")) fcrIdx = i;
+        else if (norm === "ttb" || norm.includes("ttb")) ttbIdx = i;
+      });
+    }
+
+    setPendingNpsRows(rawRows);
+    setPendingNpsMonth(selectedMonth);
+    setNpsMapping({
+      idIdx: idIdx < numCols ? idIdx : 0,
+      npsIdx: npsIdx < numCols ? npsIdx : 5,
+      fcrIdx: fcrIdx < numCols ? fcrIdx : 6,
+      ttbIdx: ttbIdx < numCols ? ttbIdx : 7,
+    });
+    setDetectedNpsHeaders(combinedHeaders.map((hdr, idx) => {
+      const colLabel = getExcelColumnLabel(idx);
+      return hdr ? `[العمود ${colLabel}] - ${hdr}` : `العمود ${colLabel} (فارغ)`;
+    }));
+    setNpsHeaderRowsCount(npsHeaderRowsCountIdx);
+  };
+
+  const confirmPendingNps = () => {
+    if (!pendingNpsRows || !pendingNpsMonth) return;
+
+    try {
+      const rows = npsHeaderRowsCount > 0 ? pendingNpsRows.slice(npsHeaderRowsCount) : pendingNpsRows;
+      const updatedEmployees = [...employees];
+      let matchedCount = 0;
+      let draftedCount = 0;
+
+      rows.forEach(row => {
+        let id = row[npsMapping.idIdx]?.trim() || "";
+        if (id.endsWith(".0")) {
+          id = id.substring(0, id.length - 2);
+        }
+        if (!id) return;
+
+        const nps = parsePercentageVal(row[npsMapping.npsIdx] || "", 39);
+        const fcr = parsePercentageVal(row[npsMapping.fcrIdx] || "", 65);
+        const ttb = parsePercentageVal(row[npsMapping.ttbIdx] || "", 85);
+
+        let empIndex = updatedEmployees.findIndex(e => e.id === id);
+        if (empIndex === -1) {
+          const newDraft: Employee = {
+            id,
+            fullName: `موظف كود ${id}`,
+            newTL: "جاري تعيين قائد فريق",
+            newSV: "إدارة العمليات",
+            mobileNumber: "",
+            nationalId: "",
+            location: "WFH",
+            lob: "Chat / ADSL",
+            performance: []
+          };
+          updatedEmployees.push(newDraft);
+          empIndex = updatedEmployees.length - 1;
+          draftedCount++;
+        }
+
+        const perfIdx = updatedEmployees[empIndex].performance.findIndex(p => p.month === pendingNpsMonth);
+        if (perfIdx > -1) {
+          updatedEmployees[empIndex].performance[perfIdx].nps = nps;
+          updatedEmployees[empIndex].performance[perfIdx].fcr = fcr;
+          updatedEmployees[empIndex].performance[perfIdx].ttb = ttb;
+          matchedCount++;
+        } else {
+          updatedEmployees[empIndex].performance.push({
+            month: pendingNpsMonth,
+            aht: "07:20",
+            csi: 40,
+            nps: nps,
+            fcr: fcr,
+            ttb: ttb,
+            ctc: 15,
+            ctb: 10,
+            absent: 0,
+            sick: 0,
+            emergency: 0,
+            unplanned: 0,
+            finalScore: 52
+          });
+          matchedCount++;
+        }
+      });
+
+      onUpdateEmployees(updatedEmployees);
+      setPasteSuccess(`تم تحديث شيت إضافات NPS بنجاح لعدد ${matchedCount} موظفاً (وتم إنشاء ${draftedCount} ملف كادر مؤقت).`);
+      setPasteNpsText("");
+      setPasteError("");
+      setPendingNpsRows(null);
+      setPendingNpsMonth("");
+      
+      setTimeout(() => setPasteSuccess(""), 15000);
+    } catch (e) {
+      setPasteError("حدث خطأ غير متوقع أثناء رصد البيانات. يرجى التحقق من الخصائص.");
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1281,6 +1530,8 @@ export default function AdminPanel({
 
           if (uploadMode === "employees") {
             processRawEmployeesMatrix(rawRows);
+          } else if (uploadMode === "nps") {
+            processRawNpsMatrix(rawRows, pasteNpsMonth);
           } else {
             processRawKpiMatrix(rawRows, pasteKpiMonth);
           }
@@ -1337,6 +1588,8 @@ export default function AdminPanel({
 
           if (uploadMode === "employees") {
             processRawEmployeesMatrix(rawRows);
+          } else if (uploadMode === "nps") {
+            processRawNpsMatrix(rawRows, pasteNpsMonth);
           } else {
             processRawKpiMatrix(rawRows, pasteKpiMonth);
           }
@@ -1757,17 +2010,6 @@ export default function AdminPanel({
       let matchedCount = 0;
       let draftedCount = 0;
 
-      const parsePercentageVal = (cellVal: string, defaultVal = 0): number => {
-        if (!cellVal) return defaultVal;
-        const cleanedStr = cellVal.replace("%", "").trim();
-        const num = parseFloat(cleanedStr);
-        if (isNaN(num)) return defaultVal;
-        if (num > 0 && num <= 1 && cellVal.includes(".")) {
-          return Math.round(num * 100);
-        }
-        return num;
-      };
-
       rows.forEach(row => {
         const id = row[idIdx]?.trim();
         if (!id) return;
@@ -1881,104 +2123,7 @@ export default function AdminPanel({
     }
   };
 
-  const handleUploadNPS = () => {
-    if (!pasteNpsText.trim()) {
-      setPasteError(`الرجاء لصق خلايا شيت الاستطلاعات والـ NPS لشهر ${pasteNpsMonth} أولاً.`);
-      return;
-    }
 
-    try {
-      const lines = pasteNpsText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-      if (lines.length === 0) {
-        setPasteError("لا توجد بيانات صالحة لمعالجتها.");
-        return;
-      }
-
-      const rawRows = lines.map(line => line.split("\t").map(cell => cell.trim().replace(/^["']|["']$/g, "").trim()));
-      const firstRow = rawRows[0];
-      const hasHeader = firstRow.some(cell => {
-        const c = cell.toLowerCase();
-        return c.includes("id") || c.includes("كود") || c.includes("nps");
-      });
-
-      let headers: string[] | null = null;
-      let rows = rawRows;
-      if (hasHeader) {
-        headers = firstRow;
-        rows = rawRows.slice(1);
-      }
-
-      let idIdx = 0, npsIdx = 1;
-
-      if (headers) {
-        headers.forEach((h, i) => {
-          const norm = h.toLowerCase();
-          if (norm.includes("id") || norm.includes("كود")) idIdx = i;
-          else if (norm.includes("nps") || norm.includes("مؤشر التوصية") || norm.includes("الاستطلاع") || norm.includes("score")) npsIdx = i;
-        });
-      }
-
-      const updatedEmployees = [...employees];
-      let updatedCount = 0;
-      let createdPerformanceCount = 0;
-
-      const parsePercentageVal = (cellVal: string, defaultVal = 0): number => {
-        if (!cellVal) return defaultVal;
-        const cleanedStr = cellVal.replace("%", "").trim();
-        const num = parseFloat(cleanedStr);
-        if (isNaN(num)) return defaultVal;
-        if (num > 0 && num <= 1 && cellVal.includes(".")) {
-          return Math.round(num * 100);
-        }
-        return num;
-      };
-
-      rows.forEach(row => {
-        let id = row[idIdx]?.trim() || "";
-        if (id.endsWith(".0")) {
-          id = id.substring(0, id.length - 2);
-        }
-        if (!id) return;
-
-        const nps = parsePercentageVal(row[npsIdx] || "", 39);
-
-        const empIndex = updatedEmployees.findIndex(e => e.id === id);
-        if (empIndex > -1) {
-          const perfIdx = updatedEmployees[empIndex].performance.findIndex(p => p.month === pasteNpsMonth);
-          if (perfIdx > -1) {
-            updatedEmployees[empIndex].performance[perfIdx].nps = nps;
-            updatedCount++;
-          } else {
-            const basePerf: MonthlyPerformance = {
-              month: pasteNpsMonth,
-              aht: "07:20",
-              csi: 40,
-              nps: nps,
-              fcr: 65,
-              ttb: 85,
-              ctc: 15,
-              ctb: 10,
-              absent: 0,
-              sick: 0,
-              emergency: 0,
-              unplanned: 0,
-              finalScore: 52
-            };
-            updatedEmployees[empIndex].performance.push(basePerf);
-            createdPerformanceCount++;
-          }
-        }
-      });
-
-      onUpdateEmployees(updatedEmployees);
-      setPasteSuccess(`بنجاح! تم تحديث قيم الـ NPS لعدد ${updatedCount} موظفاً وتأسيس سجلات أداء مبدئية لعدد ${createdPerformanceCount} موظفاً لشهر ${pasteNpsMonth}.`);
-      setPasteNpsText("");
-      setPasteError("");
-      setTimeout(() => setPasteSuccess(""), 5000);
-    } catch (e) {
-      setPasteError("حدث خطأ أثناء معالجة شيت الـ NPS ومطابقة الأكواد.");
-    }
-  };
 
   // Submit Manual Single entry
   const handleManualKpiSubmit = (e: React.FormEvent) => {
@@ -2860,49 +3005,182 @@ export default function AdminPanel({
 
               {uploadMode === "nps" && (
                 <div className="space-y-4 text-right">
-                  <div className="bg-emerald-50/70 border border-emerald-100/50 p-3 rounded-2xl flex flex-col gap-2">
-                    <div>
-                      <label className="text-emerald-950 text-xs font-bold block mb-1">حدد الشهر الذي ينتمي إليه شيت الـ NPS:</label>
-                      <select
-                        value={pasteNpsMonth}
-                        onChange={(e) => setPasteNpsMonth(e.target.value)}
-                        className="w-full bg-white border border-emerald-100 px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-700"
-                      >
-                        <option value="Jan-25">Jan-25</option>
-                        <option value="Feb-25">Feb-25</option>
-                        <option value="Mar-25">Mar-25</option>
-                        <option value="Apr-25">Apr-25</option>
-                        <option value="May-25">May-25</option>
-                        <option value="Jun-25">Jun-25</option>
-                        <option value="Jul-25">Jul-25</option>
-                        <option value="Aug-25">Aug-25</option>
-                        <option value="Sep-25">Sep-25</option>
-                        <option value="Oct-25">Oct-25</option>
-                        <option value="Nov-25">Nov-25</option>
-                        <option value="Dec-25">Dec-25</option>
-                        <option value="Jan-26">Jan-26</option>
-                        <option value="Feb-26">Feb-26</option>
-                        <option value="Mar-26">Mar-26</option>
-                        <option value="Apr-26">Apr-26</option>
-                        <option value="May-26">May-26</option>
-                      </select>
+                  {pendingNpsRows ? (
+                    <div className="space-y-4 text-right bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm animate-fade-in" dir="rtl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-slate-850 flex items-center gap-2">
+                          <Settings className="w-5 h-5 text-emerald-500 animate-spin" style={{ animationDuration: '6s' }} />
+                          تعديل مطابقة أعمدة Excel لشهر {pendingNpsMonth}
+                        </h4>
+                        <button 
+                          onClick={() => setPendingNpsRows(null)}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 transition-all"
+                        >
+                          إلغاء واستيراد آخر ✗
+                        </button>
+                      </div>
+                      
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        قمنا بقراءة الشيت. يرجى مطابقة أعمدة الاستطلاعات لضمان إدخال التقييمات الصحيحة (NPS, FCR, TTB):
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[320px] overflow-y-auto p-3 border border-slate-100 bg-white rounded-xl text-xs">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-slate-600 block">كود الموظف (ID) *</span>
+                          <select
+                            value={npsMapping.idIdx}
+                            onChange={(e) => setNpsMapping({ ...npsMapping, idIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            {detectedNpsHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-emerald-700 block">NPS</span>
+                          <select
+                            value={npsMapping.npsIdx}
+                            onChange={(e) => setNpsMapping({ ...npsMapping, npsIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-emerald-200 text-xs font-medium"
+                          >
+                            <option value={-1}>تجاهل / غير موجود</option>
+                            {detectedNpsHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-emerald-700 block">FCR</span>
+                          <select
+                            value={npsMapping.fcrIdx}
+                            onChange={(e) => setNpsMapping({ ...npsMapping, fcrIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-emerald-200 text-xs font-medium"
+                          >
+                            <option value={-1}>تجاهل / غير موجود</option>
+                            {detectedNpsHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-emerald-700 block">TTB</span>
+                          <select
+                            value={npsMapping.ttbIdx}
+                            onChange={(e) => setNpsMapping({ ...npsMapping, ttbIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-emerald-200 text-xs font-medium"
+                          >
+                            <option value={-1}>تجاهل / غير موجود</option>
+                            {detectedNpsHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          onClick={confirmPendingNps}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>تأكيد اعتماد بيانات NPS لشهر {pendingNpsMonth}</span>
+                        </button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <div className="bg-emerald-50/70 border border-emerald-100/50 p-3 rounded-2xl flex flex-col gap-2">
+                        <div>
+                          <label className="text-emerald-950 text-xs font-bold block mb-1">حدد الشهر الذي ينتمي إليه شيت الـ NPS:</label>
+                          <select
+                            value={pasteNpsMonth}
+                            onChange={(e) => setPasteNpsMonth(e.target.value)}
+                            className="w-full bg-white border border-emerald-100 px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-700"
+                          >
+                            <option value="Jan-25">Jan-25</option>
+                            <option value="Feb-25">Feb-25</option>
+                            <option value="Mar-25">Mar-25</option>
+                            <option value="Apr-25">Apr-25</option>
+                            <option value="May-25">May-25</option>
+                            <option value="Jun-25">Jun-25</option>
+                            <option value="Jul-25">Jul-25</option>
+                            <option value="Aug-25">Aug-25</option>
+                            <option value="Sep-25">Sep-25</option>
+                            <option value="Oct-25">Oct-25</option>
+                            <option value="Nov-25">Nov-25</option>
+                            <option value="Dec-25">Dec-25</option>
+                            <option value="Jan-26">Jan-26</option>
+                            <option value="Feb-26">Feb-26</option>
+                            <option value="Mar-26">Mar-26</option>
+                            <option value="Apr-26">Apr-26</option>
+                            <option value="May-26">May-26</option>
+                          </select>
+                        </div>
+                      </div>
 
-                    <p className="text-[10px] text-emerald-700 leading-relaxed font-medium">
-                      انسخ عمودين فقط: <strong className="text-emerald-900">كود الموظف (ID)</strong> و <strong className="text-emerald-900">درجة الـ NPS</strong>. سيقوم النظام بدمج الدرجة وتعديل مؤشر NPS المعتمد للموظفين تلقائياً لشهر {pasteNpsMonth}!
-                    </p>
-                  </div>
+                      <div className="flex flex-col gap-3">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="font-bold text-slate-700 text-xs flex items-center gap-1">
+                            <Upload className="w-4 h-4 text-emerald-500" />
+                            الخيار الأول: رفع شيت إكسيل (Excel)
+                          </label>
+                        </div>
+                        <div className="border border-dashed border-emerald-300 hover:border-emerald-500 bg-white hover:bg-emerald-50 transition-colors p-4 rounded-xl flex items-center justify-center cursor-pointer relative overflow-hidden group">
+                          <input 
+                            type="file" 
+                            accept=".xlsx, .xls, .csv, .txt, .tsv" 
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={handleFileUpload}
+                          />
+                          <div className="text-center">
+                            <Database className="w-6 h-6 text-emerald-400 group-hover:text-emerald-500 mx-auto mb-2" />
+                            <span className="text-xs font-bold text-emerald-700 block">انقر هنا لرفع ملف (.xlsx, .csv)</span>
+                          </div>
+                        </div>
 
-                  <div>
-                    <textarea
-                      value={pasteNpsText}
-                      onChange={(e) => setPasteNpsText(e.target.value)}
-                      placeholder="ألصق عمود الكود ودرجة الـ NPS هنا (Ctrl + V)..."
-                      rows={6}
-                      className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      dir="ltr"
-                    />
-                  </div>
+                        <div className="relative flex py-1 items-center">
+                          <div className="flex-grow border-t border-slate-100"></div>
+                          <span className="flex-shrink mx-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">أو</span>
+                          <div className="flex-grow border-t border-slate-100"></div>
+                        </div>
+
+                        <div className="border border-slate-100 p-4 rounded-2xl bg-white/50 space-y-3">
+                          <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider block mb-1">الخيار الثاني: نسخ ولصق الخلايا من الشيت مباشرة</span>
+                          <div>
+                            <textarea
+                              value={pasteNpsText}
+                              onChange={(e) => setPasteNpsText(e.target.value)}
+                              placeholder="ألصق الأعمدة (الكود ودرجة NPS و FCR و TTB) هنا (Ctrl + V)..."
+                              rows={4}
+                              className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                              dir="ltr"
+                            />
+                          </div>
+                          <button
+                            onClick={() => {
+                              const lines = pasteNpsText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                              if (lines.length === 0) {
+                                setPasteError("لا توجد بيانات صالحة لمعالجتها.");
+                                return;
+                              }
+                              const detectSeparator = (sampleLine: string) => sampleLine.includes("\t") ? "\t" : sampleLine.includes(",") ? "," : "\t";
+                              const sep = detectSeparator(lines[0] || "");
+                              const rawRows = lines.map(line => line.split(sep).map(cell => cell.trim().replace(/^["']|["']$/g, "").trim()));
+                              processRawNpsMatrix(rawRows, pasteNpsMonth);
+                            }}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>تأكيد ومعالجة الرفع لشهر {pasteNpsMonth}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {pasteError && (
                     <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-xs flex items-center gap-1.5 font-semibold">
@@ -2917,14 +3195,6 @@ export default function AdminPanel({
                       <span>{pasteSuccess}</span>
                     </div>
                   )}
-
-                  <button
-                    onClick={handleUploadNPS}
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>دمج وتأكيد الرفع لشهر {pasteNpsMonth}</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -3409,10 +3679,11 @@ export default function AdminPanel({
                   اكتب رسالتك ليتداولها الشريط المتحرك في أعلى كارت الأداء لجميع المشرفين وليدر الفرق على الفور!
                 </p>
                 <textarea
+                  id="notice-textarea"
                   value={localNotice}
                   onChange={(e) => setLocalNotice(e.target.value)}
                   placeholder="أدخل نص التنبيه الإداري العاجل هنا..."
-                  className="w-full px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs leading-relaxed text-right font-semibold resize-none h-20 outline-none focus:ring-1 focus:ring-we-pink focus:border-we-pink transition-all"
+                  className="w-full px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs leading-relaxed text-right font-semibold resize-none h-20 outline-none focus:ring-1 focus:ring-we-pink focus:border-we-pink transition-all focus:bg-pink-50/30"
                 />
               </div>
 
@@ -3692,6 +3963,143 @@ export default function AdminPanel({
                 className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all shadow-md"
               >
                 موافق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Reset Modal */}
+      {resetDialogState.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" dir="rtl">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl p-6 max-w-md w-full text-right space-y-4 transform transition-all">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-50 text-rose-600">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-display font-black text-slate-800 leading-none">
+                خيارات الحذف وإعادة التهيئة
+              </h3>
+            </div>
+
+            <p className="text-slate-500 text-xs leading-relaxed font-semibold mb-4">
+              اختر نوع البيانات التي ترغب في مسحها. سيتم مزامنة الحذف مع السحابة فوراً ولا يمكن التراجع عن هذا الإجراء:
+            </p>
+
+            <div className="space-y-3">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${resetDialogState.mode === "all" ? "bg-rose-50 border-rose-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <input 
+                  type="radio" 
+                  name="reset_mode" 
+                  checked={resetDialogState.mode === "all"}
+                  onChange={() => setResetDialogState(prev => ({ ...prev, mode: "all" }))}
+                  className="w-4 h-4 text-rose-600"
+                />
+                <span className="text-xs font-bold text-slate-800">حذف كافة البيانات (استعادة المصنع)</span>
+              </label>
+
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${resetDialogState.mode === "employees_only" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <input 
+                  type="radio" 
+                  name="reset_mode" 
+                  checked={resetDialogState.mode === "employees_only"}
+                  onChange={() => setResetDialogState(prev => ({ ...prev, mode: "employees_only" }))}
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-xs font-bold text-slate-800">حذف جميع الموظفين وسجلاتهم</span>
+              </label>
+
+              <div className={`p-3 rounded-xl border transition-colors ${resetDialogState.mode === "kpi_month" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                  <input 
+                    type="radio" 
+                    name="reset_mode" 
+                    checked={resetDialogState.mode === "kpi_month"}
+                    onChange={() => setResetDialogState(prev => ({ ...prev, mode: "kpi_month" }))}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-xs font-bold text-slate-800">حذف مؤشرات <b>KPI</b> لشهر محدد:</span>
+                </label>
+                {resetDialogState.mode === "kpi_month" && (
+                  <select
+                    value={resetDialogState.selectedMonth}
+                    onChange={(e) => setResetDialogState(prev => ({ ...prev, selectedMonth: e.target.value }))}
+                    className="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg text-xs font-mono font-bold text-slate-700 mt-1"
+                  >
+                        <option value="Jan-25">Jan-25</option>
+                        <option value="Feb-25">Feb-25</option>
+                        <option value="Mar-25">Mar-25</option>
+                        <option value="Apr-25">Apr-25</option>
+                        <option value="May-25">May-25</option>
+                        <option value="Jun-25">Jun-25</option>
+                        <option value="Jul-25">Jul-25</option>
+                        <option value="Aug-25">Aug-25</option>
+                        <option value="Sep-25">Sep-25</option>
+                        <option value="Oct-25">Oct-25</option>
+                        <option value="Nov-25">Nov-25</option>
+                        <option value="Dec-25">Dec-25</option>
+                        <option value="Jan-26">Jan-26</option>
+                        <option value="Feb-26">Feb-26</option>
+                        <option value="Mar-26">Mar-26</option>
+                        <option value="Apr-26">Apr-26</option>
+                        <option value="May-26">May-26</option>
+                  </select>
+                )}
+              </div>
+
+              <div className={`p-3 rounded-xl border transition-colors ${resetDialogState.mode === "nps_month" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                  <input 
+                    type="radio" 
+                    name="reset_mode" 
+                    checked={resetDialogState.mode === "nps_month"}
+                    onChange={() => setResetDialogState(prev => ({ ...prev, mode: "nps_month" }))}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-xs font-bold text-slate-800">حذف استطلاعات <b>NPS</b> لشهر محدد:</span>
+                </label>
+                {resetDialogState.mode === "nps_month" && (
+                  <select
+                    value={resetDialogState.selectedMonth}
+                    onChange={(e) => setResetDialogState(prev => ({ ...prev, selectedMonth: e.target.value }))}
+                    className="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg text-xs font-mono font-bold text-slate-700 mt-1"
+                  >
+                        <option value="Jan-25">Jan-25</option>
+                        <option value="Feb-25">Feb-25</option>
+                        <option value="Mar-25">Mar-25</option>
+                        <option value="Apr-25">Apr-25</option>
+                        <option value="May-25">May-25</option>
+                        <option value="Jun-25">Jun-25</option>
+                        <option value="Jul-25">Jul-25</option>
+                        <option value="Aug-25">Aug-25</option>
+                        <option value="Sep-25">Sep-25</option>
+                        <option value="Oct-25">Oct-25</option>
+                        <option value="Nov-25">Nov-25</option>
+                        <option value="Dec-25">Dec-25</option>
+                        <option value="Jan-26">Jan-26</option>
+                        <option value="Feb-26">Feb-26</option>
+                        <option value="Mar-26">Mar-26</option>
+                        <option value="Apr-26">Apr-26</option>
+                        <option value="May-26">May-26</option>
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-4">
+              <button
+                type="button"
+                onClick={executeAdvancedReset}
+                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-all shadow-sm"
+              >
+                المضي قدماً بالحذف
+              </button>
+              <button
+                type="button"
+                onClick={() => setResetDialogState(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-3 px-4 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
+              >
+                إلغاء
               </button>
             </div>
           </div>

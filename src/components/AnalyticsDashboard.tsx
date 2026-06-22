@@ -25,21 +25,29 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
     employees.forEach(e => {
       e.performance.forEach(p => monthsSet.add(p.month));
     });
-    // Let's sort months or convert to ordered array
     return sortMonths(Array.from(monthsSet));
   }, [employees]);
 
-  // Selected Month for report
+  // Available Team Leaders
+  const allTLs = useMemo(() => {
+    const tlSet = new Set<string>();
+    employees.forEach(e => {
+      if (e.newTL) tlSet.add(e.newTL);
+    });
+    return Array.from(tlSet).sort();
+  }, [employees]);
+
+  // Selected Month and TL for report
   const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedTL, setSelectedTL] = useState<string>("All");
 
   React.useEffect(() => {
     if (allMonths.length > 0 && !selectedMonth) {
-      // Setup to the latest month by default
       setSelectedMonth(allMonths[allMonths.length - 1]);
     }
   }, [allMonths, selectedMonth]);
 
-  // Overall statistics for the selected month
+  // Overall statistics for the selected month and selected TL
   const monthStats = useMemo(() => {
     if (!selectedMonth || employees.length === 0) return null;
 
@@ -51,9 +59,11 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
     let activeEmpCount = 0;
     let passingTargetsCount = 0;
 
-    const rankings: { id: string; name: string; score: number; tl: string; targetScore: number }[] = [];
+    const rankings: { id: string; name: string; score: number; tl: string; targetScore: number; lob: string; aht: string; csi: number; nps: number }[] = [];
 
     employees.forEach(emp => {
+      if (selectedTL !== "All" && emp.newTL !== selectedTL) return;
+
       const perf = emp.performance.find(p => p.month === selectedMonth);
       if (perf) {
         activeEmpCount++;
@@ -76,7 +86,11 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
           name: emp.fullName,
           score: perf.finalScore,
           tl: emp.newTL,
-          targetScore: empTargets.finalScore
+          targetScore: empTargets.finalScore,
+          lob: emp.lob || "N/A",
+          aht: perf.aht,
+          csi: perf.csi,
+          nps: perf.nps
         });
       }
     });
@@ -95,8 +109,9 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
       passingRatio: (passingTargetsCount / activeEmpCount) * 100,
       topPerformers: rankings.slice(0, 3),
       needsCoaching: rankings.filter(r => r.score < r.targetScore),
+      fullTeamList: rankings
     };
-  }, [employees, selectedMonth, targetsChat, targetsUniversal]);
+  }, [employees, selectedMonth, selectedTL, targetsChat, targetsUniversal]);
 
   // Team Leader Stats for comparative breakdown
   const tlStats = useMemo(() => {
@@ -105,6 +120,11 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
     const tlMap: { [key: string]: { totalScore: number; count: number; name: string } } = {};
 
     employees.forEach(emp => {
+      // For TL comparative, we probably want to show all TLs regardless of selectedTL filter so admin can compare
+      // if selectedTL is "All", show all. If selectedTL is specific, we still might only want to show that one or all?
+      // Let's just show the ones filtered by the current view to be consistent.
+      if (selectedTL !== "All" && emp.newTL !== selectedTL) return;
+
       const perf = emp.performance.find(p => p.month === selectedMonth);
       if (perf) {
         const tlName = emp.newTL || "غير محدد";
@@ -122,7 +142,7 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
       count: tl.count
     })).sort((a, b) => b.avgScore - a.avgScore);
 
-  }, [employees, selectedMonth]);
+  }, [employees, selectedMonth, selectedTL]);
 
   return (
     <div className="space-y-6" id="analytics-workspace">
@@ -136,19 +156,37 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
           <p className="text-slate-400 text-xs mt-0.5">تقييم جماعي ومؤشرات جودة الأداء العام للشركة</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="bg-slate-50 border border-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-we-purple font-mono"
-          >
-            {allMonths.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedTL}
+              onChange={(e) => setSelectedTL(e.target.value)}
+              className="bg-slate-50 border border-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-we-purple font-mono"
+            >
+              <option value="All">كل قادة الفرق</option>
+              {allTLs.map((tl) => (
+                <option key={tl} value={tl}>
+                  {tl}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-slate-50 border border-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-we-purple font-mono"
+            >
+              {allMonths.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -292,6 +330,62 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
                   👏 مذهل! لا يوجد موظف تحت خط المستهدف هذا الشهر. جميع الكوادر ناجحة ومستوفية للشروط!
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Full Team Table */}
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" dir="rtl">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+              <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2">
+                <Users className="w-5 h-5 text-we-purple" />
+                قائمة الفريق بالكامل
+              </h3>
+              <span className="bg-white px-3 py-1 rounded-full text-xs font-bold text-we-purple border border-slate-200">
+                {monthStats.fullTeamList.length} موظف
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead>
+                  <tr className="bg-white border-b border-slate-100 text-slate-500 font-semibold">
+                    <th className="px-6 py-4 whitespace-nowrap">الموظف</th>
+                    <th className="px-6 py-4 whitespace-nowrap">قائد الفريق</th>
+                    <th className="px-6 py-4 whitespace-nowrap">خط العمل (LOB)</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-center">AHT</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-center">CSI</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-center">NPS</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-center">التقييم النهائي</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {monthStats.fullTeamList.map((emp) => (
+                    <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-slate-800">{emp.name}</div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.id}</div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 text-xs">{emp.tl || "غير محدد"}</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold tracking-wider">
+                          {emp.lob}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center font-mono font-medium text-slate-600 text-xs">{emp.aht}</td>
+                      <td className="px-6 py-4 text-center font-mono font-medium text-blue-600 text-xs">{emp.csi}%</td>
+                      <td className="px-6 py-4 text-center font-mono font-medium text-indigo-600 text-xs">{emp.nps}%</td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold font-mono ${
+                          emp.score >= emp.targetScore 
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                            : "bg-rose-50 text-rose-700 border border-rose-100"
+                        }`}>
+                          {emp.score}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </>

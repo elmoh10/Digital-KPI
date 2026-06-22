@@ -9,9 +9,10 @@ import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAU
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import AdminPanel from "./components/AdminPanel";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import Auth from "./components/Auth";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone
+  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X
 } from "lucide-react";
 import { 
   seedDatabaseIfEmpty, 
@@ -22,11 +23,15 @@ import {
 } from "./lib/firebase";
 
 export default function App() {
+  // Authentication state
+  const [userRole, setUserRole] = useState<"admin" | "leader" | null>(null);
+
   // Persistence state
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [targetsChat, setTargetsChat] = useState<KPITargets>(DEFAULT_KPI_TARGETS_CHAT);
   const [targetsUniversal, setTargetsUniversal] = useState<KPITargets>(DEFAULT_KPI_TARGETS_UNIVERSAL);
   const [bannerNotice, setBannerNotice] = useState<string>("");
+  const [dismissedNotice, setDismissedNotice] = useState<string>("");
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Active view tab state: "dashboard" | "analytics" | "admin"
@@ -70,7 +75,12 @@ export default function App() {
           if (!active) return;
           setTargetsChat(data.targetsChat);
           setTargetsUniversal(data.targetsUniversal);
-          setBannerNotice(data.bannerNotice);
+          setBannerNotice(prev => {
+            if (prev !== data.bannerNotice) {
+              setDismissedNotice("");
+            }
+            return data.bannerNotice;
+          });
         });
 
         unsubEmployees = subscribeToEmployees((list) => {
@@ -115,6 +125,7 @@ export default function App() {
       if (unsubEmployees) unsubEmployees();
     };
   }, []);
+
 
   // Update employees handler
   const handleUpdateEmployees = async (updatedList: Employee[]) => {
@@ -173,6 +184,19 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (userRole === "leader" && activeTab === "admin") {
+      setActiveTab("dashboard");
+    }
+  }, [userRole, activeTab]);
+
+  if (!userRole) {
+    return <Auth onLogin={(role) => {
+      setUserRole(role);
+      setActiveTab("dashboard");
+    }} />;
+  }
+
   if (!isDataLoaded) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-4">
@@ -224,6 +248,15 @@ export default function App() {
 
             {/* Left Group: Theme Toggle, Digital Cairo Clock & Online indicator */}
             <div className="flex items-center gap-3 sm:gap-4 flex-row">
+              {/* Logout Button */}
+              <button
+                onClick={() => setUserRole(null)}
+                className="p-2 sm:p-2.5 rounded-2xl bg-we-pink/10 hover:bg-we-pink/20 text-we-pink transition-all flex items-center justify-center cursor-pointer shadow-sm relative shrink-0"
+                title="تسجيل الخروج"
+              >
+                <LogOut className="w-4.5 h-4.5 sm:w-5 h-5" />
+              </button>
+              
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
@@ -272,17 +305,19 @@ export default function App() {
         {/* Global Page Toggles Navigation */}
         <div className="border-t border-slate-50 bg-slate-50/50 p-2">
           <div className="max-w-md mx-auto flex bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-100" id="navigation-tabs">
-            <button
-              onClick={() => setActiveTab("admin")}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "admin" 
-                  ? "bg-we-purple text-white shadow-md font-bold" 
-                  : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4 shrink-0 text-we-pink" />
-              <span>لوحة الإدارة</span>
-            </button>
+            {userRole === "admin" && (
+              <button
+                onClick={() => setActiveTab("admin")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "admin" 
+                    ? "bg-we-purple text-white shadow-md font-bold" 
+                    : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+                }`}
+              >
+                <ShieldAlert className="w-4 h-4 shrink-0 text-we-pink" />
+                <span>لوحة الإدارة</span>
+              </button>
+            )}
 
             <button
               onClick={() => setActiveTab("analytics")}
@@ -312,19 +347,39 @@ export default function App() {
       </header>
 
       {/* Dynamic Scrolling Announcement Marquee Ticker (شريط التنبيهات المتحرك السحابي) */}
-      {bannerNotice && (
-        <div className="bg-gradient-to-r from-[#512588] to-[#d11270] text-white py-2.5 overflow-hidden shadow-inner flex items-center relative gap-3 text-xs font-semibold no-print z-35 border-b border-white/10" dir="rtl">
-          <div className="absolute right-0 top-0 bottom-0 bg-gradient-to-l from-[#d11270] to-[#512588] px-4 font-black flex items-center shadow-md border-l border-white/20 shrink-0 z-10 gap-1.5 text-[11px] select-none text-white">
-            <Megaphone className="w-4 h-4 text-white animate-bounce shrink-0" />
-            <span className="text-white">تنبيهات الإدارة:</span>
-          </div>
-          <div className="w-full overflow-hidden relative flex items-center">
-            <div className="animate-marquee-scroll whitespace-nowrap text-[12px] text-white font-bold tracking-wide">
-              {bannerNotice}
+      <AnimatePresence>
+        {bannerNotice && bannerNotice !== dismissedNotice && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full flex justify-center py-2 bg-slate-50 border-b border-slate-100 no-print z-30 relative" dir="rtl"
+          >
+            <div className="max-w-lg w-full bg-gradient-to-r from-[#512588] to-[#d11270] rounded-full text-white p-1 overflow-hidden shadow-md flex items-center relative gap-2 text-xs font-semibold mx-4 border border-white/20">
+              
+              <div className="bg-white/20 rounded-full px-3 py-1.5 flex items-center shrink-0 z-20 gap-1.5 backdrop-blur-sm border border-white/10 shadow-sm">
+                <Megaphone className="w-3.5 h-3.5 text-white animate-pulse shrink-0" />
+                <span className="text-white tracking-wider font-black text-[10px]">تنبيه إداري</span>
+              </div>
+
+              <div className="flex-1 overflow-hidden relative flex items-center h-5 w-full mask-edges">
+                <div className="animate-marquee-scroll whitespace-nowrap text-[12px] text-white font-bold tracking-wide drop-shadow-sm px-2">
+                  {bannerNotice}
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setDismissedNotice(bannerNotice)}
+                className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-1.5 backdrop-blur-sm transition-all focus:outline-none flex items-center justify-center shrink-0 z-20 ml-1 shadow-sm"
+                title="إخفاء التنبيه"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Workspace Frame */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8" id="primary-app-container">
