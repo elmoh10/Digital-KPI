@@ -74,7 +74,7 @@ export async function seedDatabaseIfEmpty() {
 /**
  * Sync configuration from Cloud Database.
  */
-export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenanceMode: boolean }) => void) {
+export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenancePages: string[] }) => void) {
   const configRef = doc(db, "we_config", "general");
   return onSnapshot(configRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -84,7 +84,7 @@ export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; ta
         targetsUniversal: data.targetsUniversal || data.targets || DEFAULT_KPI_TARGETS_UNIVERSAL,
         historicalTargets: data.historicalTargets || {},
         bannerNotice: data.bannerNotice || "",
-        maintenanceMode: data.maintenanceMode || false
+        maintenancePages: data.maintenancePages || (data.maintenanceMode ? ["dashboard", "analytics", "weekly"] : [])
       });
     }
   }, (err) => {
@@ -112,14 +112,14 @@ export function subscribeToEmployees(onUpdate: (employees: Employee[]) => void) 
 /**
  * Save targets and notice to cloud
  */
-export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string, maintenanceMode: boolean = false, historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>) {
+export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string, maintenancePages: string[] = [], historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>) {
   const configRef = doc(db, "we_config", "general");
   const payload: any = {
     targetsChat,
     targetsUniversal,
     targets: targetsChat, // maintain default for backward compatibility
     bannerNotice,
-    maintenanceMode,
+    maintenancePages,
     updatedAt: new Date().toISOString()
   };
   if (historicalTargets) {

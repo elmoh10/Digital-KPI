@@ -7,12 +7,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { Employee, KPITargets, MonthlyPerformance } from "../types";
 import { 
-  Lock, KeyRound, Check, Edit3, Plus, Trash2, Database, Upload, 
+  Lock, KeyRound, Check, Edit3, Plus, Trash2, Database, Upload, Download, 
   HelpCircle, Settings, UserPlus, RefreshCw, LogOut, CheckCircle2,
   AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History
 } from "lucide-react";
 import { motion } from "motion/react";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS } from "../data";
+import { sortMonths } from "./EmployeeDashboard";
 
 interface AdminPanelProps {
   employees: Employee[];
@@ -20,15 +21,15 @@ interface AdminPanelProps {
   targetsUniversal: KPITargets;
   historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>;
   bannerNotice?: string;
-  maintenanceMode?: boolean;
+  maintenancePages?: string[];
   onUpdateBannerNotice?: (notice: string) => void;
-  onUpdateMaintenanceMode?: (status: boolean) => void;
+  onUpdateMaintenancePages?: (pages: string[]) => void;
   onUpdateEmployees: (updated: Employee[]) => void;
   onUpdateTargets: (
     updatedChat: KPITargets, 
     updatedUniversal: KPITargets, 
     updatedNotice?: string, 
-    updatedMaintenanceMode?: boolean,
+    updatedMaintenancePages?: string[],
     updatedHistoricalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>
   ) => void;
 }
@@ -104,9 +105,9 @@ export default function AdminPanel({
   targetsUniversal,
   historicalTargets = {},
   bannerNotice = "",
-  maintenanceMode = false,
+  maintenancePages = [],
   onUpdateBannerNotice = () => {},
-  onUpdateMaintenanceMode = () => {},
+  onUpdateMaintenancePages = () => {},
   onUpdateEmployees,
   onUpdateTargets,
 }: AdminPanelProps) {
@@ -140,7 +141,7 @@ export default function AdminPanel({
   }, [localNotice]);
 
   // Control tabs in Admin Dashboard
-  const [adminTab, setAdminTab] = useState<"upload" | "employees" | "targets">("upload");
+  const [adminTab, setAdminTab] = useState<"upload" | "employees" | "targets" | "data">("upload");
 
   // Control which LOB targets we are currently editing
   const [editingLOB, setEditingLOB] = useState<"chat" | "universal">("chat");
@@ -2369,10 +2370,18 @@ export default function AdminPanel({
       </div>
 
       {/* Admin Tabs */}
-      <div className="flex bg-slate-250 p-1.5 rounded-2xl w-full max-w-lg mx-auto bg-slate-100" id="admin-inner-tabs">
+      <div className="flex bg-slate-250 p-1.5 rounded-2xl w-full max-w-2xl mx-auto bg-slate-100 overflow-x-auto" id="admin-inner-tabs">
+        <button
+          onClick={() => setAdminTab("data")}
+          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+            adminTab === "data" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          البيانات والنظام
+        </button>
         <button
           onClick={() => setAdminTab("targets")}
-          className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
             adminTab === "targets" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -2380,7 +2389,7 @@ export default function AdminPanel({
         </button>
         <button
           onClick={() => setAdminTab("employees")}
-          className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
             adminTab === "employees" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -2388,7 +2397,7 @@ export default function AdminPanel({
         </button>
         <button
           onClick={() => setAdminTab("upload")}
-          className={`flex-1 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
             adminTab === "upload" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -3793,37 +3802,51 @@ export default function AdminPanel({
                 />
               </div>
 
-              {/* Maintenance Mode Toggle */}
-              <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col gap-2 mb-4">
-                <div className="flex justify-between items-center">
+              {/* Maintenance Mode Selection */}
+              <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col gap-3 mb-4">
+                <div className="flex flex-col gap-1 text-right">
                   <span className="text-xs font-black text-orange-700 flex items-center gap-1.5 justify-start">
                     <AlertCircle className="w-4 h-4 text-orange-500" />
-                    تفعيل وضع الصيانة (تحت التطوير)
+                    تفعيل وضع الصيانة (تحت التطوير) للصفحات
                   </span>
-                  
-                  {/* Custom Toggle Switch */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (onUpdateMaintenanceMode) {
-                        onUpdateMaintenanceMode(!maintenanceMode);
-                      }
-                    }}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
-                      maintenanceMode ? 'bg-orange-500' : 'bg-slate-300'
-                    }`}
-                    dir="ltr"
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        maintenanceMode ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
+                  <p className="text-[10px] text-orange-600/80 leading-relaxed font-semibold">
+                    اختر الصفحات التي ترغب في إخفائها وعرض صفحة "تحت التطوير" بدلاً منها لقادة الفرق.
+                  </p>
                 </div>
-                <p className="text-[10px] text-orange-600/80 leading-relaxed font-semibold">
-                  تفعيل هذا الخيار سيقوم بحجب المنصة عن قادة الفرق (Leaders) وعرض صفحة "تحت التطوير" مؤقتاً حتى يتم إيقافه.
-                </p>
+                
+                <div className="flex flex-col gap-2">
+                  {[
+                    { id: "dashboard", label: "التقييم الفردي" },
+                    { id: "analytics", label: "تقارير تشغيل الفرق" },
+                    { id: "weekly", label: "الأداء الأسبوعي" }
+                  ].map(page => {
+                    const isMaintenance = maintenancePages.includes(page.id);
+                    return (
+                      <div key={page.id} className="flex justify-between items-center bg-white/50 p-2 rounded-xl border border-orange-100/50">
+                        <span className="text-xs font-semibold text-orange-900">{page.label}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPages = isMaintenance 
+                              ? maintenancePages.filter(p => p !== page.id)
+                              : [...maintenancePages, page.id];
+                            onUpdateMaintenancePages(newPages);
+                          }}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 ${
+                            isMaintenance ? 'bg-orange-500' : 'bg-slate-300'
+                          }`}
+                          dir="ltr"
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                              isMaintenance ? 'translate-x-5' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Month Selection for Historical Targets */}
@@ -4054,6 +4077,163 @@ export default function AdminPanel({
                 <span>حفظ التعديلات وتثبيتها</span>
               </button>
             </form>
+          </div>
+        )}
+        
+        {adminTab === "data" && (
+          <div className="space-y-6">
+            {/* System Status and DB Options */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
+              <h3 className="text-md font-display font-semibold text-slate-800 flex items-center gap-2">
+                <Database className="w-5 h-5 text-indigo-500" />
+                خيارات قاعدة البيانات والنسخ الاحتياطي
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 mb-1">النسخ الاحتياطي للبيانات</h4>
+                    <p className="text-xs text-slate-500">حفظ نسخة كاملة من بيانات النظام بصيغة JSON على جهازك.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const data = { employees, targetsChat, targetsUniversal, historicalTargets };
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `kpi_backup_${new Date().toISOString().split("T")[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="mt-auto bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2.5 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>تنزيل نسخة احتياطية</span>
+                  </button>
+                </div>
+                
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-3">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 mb-1">استعادة البيانات</h4>
+                    <p className="text-xs text-slate-500">رفع نسخة احتياطية (JSON) لاستعادة النظام. سيتم كتابة البيانات فوق الحالية.</p>
+                  </div>
+                  <label className="mt-auto cursor-pointer bg-white border-2 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-semibold py-2 px-4 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" />
+                    <span>رفع ملف Backup</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = async (ev) => {
+                          try {
+                            const content = ev.target?.result as string;
+                            const data = JSON.parse(content);
+                            if (data.employees && Array.isArray(data.employees)) {
+                              setDialogConfirm({
+                                isOpen: true,
+                                title: "تأكيد استعادة البيانات",
+                                message: "هل أنت متأكد من استعادة هذه النسخة الاحتياطية؟ سيتم مسح البيانات الحالية نهائياً واستبدالها بالبيانات الموجودة في الملف.",
+                                confirmText: "استعادة البيانات",
+                                cancelText: "إلغاء",
+                                theme: "rose",
+                                onConfirm: async () => {
+                                  try {
+                                    await onUpdateEmployees(data.employees);
+                                    if (data.targetsChat && data.targetsUniversal) {
+                                      await onUpdateTargets(data.targetsChat, data.targetsUniversal, bannerNotice, maintenanceMode, data.historicalTargets || {});
+                                    }
+                                    setDialogAlert({ isOpen: true, title: "نجاح", message: "تم استعادة البيانات بنجاح", type: "success" });
+                                  } catch (e) {
+                                    setDialogAlert({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء الاستعادة", type: "error" });
+                                  }
+                                }
+                              });
+                            } else {
+                              setDialogAlert({ isOpen: true, title: "خطأ", message: "ملف النسخة الاحتياطية غير صالح", type: "error" });
+                            }
+                          } catch (err) {
+                            setDialogAlert({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء قراءة الملف", type: "error" });
+                          }
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Manage Months */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
+              <h3 className="text-md font-display font-semibold text-rose-600 flex items-center gap-2">
+                <Trash2 className="w-5 h-5" />
+                حذف وإدارة بيانات شهر محدد
+              </h3>
+              
+              <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100 flex flex-col gap-3">
+                <p className="text-xs text-rose-700 font-medium">
+                  احذر: سيؤدي هذا الإجراء إلى مسح بيانات الشهر المحدد من جميع الموظفين ومن سجل الأهداف التاريخية بشكل نهائي!
+                </p>
+                <div className="flex gap-2 items-center mt-2">
+                  <select
+                    id="monthToDeleteSelect"
+                    className="flex-1 px-3 py-2.5 bg-white border border-rose-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-rose-500 font-mono text-center text-slate-700"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>-- اختر الشهر المراد حذفه --</option>
+                    {sortMonths(Array.from(new Set(employees.flatMap(e => e.performance.map(p => p.month))))).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={async () => {
+                      const select = document.getElementById("monthToDeleteSelect") as HTMLSelectElement;
+                      const m = select.value;
+                      if (!m) {
+                        setDialogAlert({ isOpen: true, title: "تنبيه", message: "يرجى اختيار الشهر أولاً", type: "error" });
+                        return;
+                      }
+                      setDialogConfirm({
+                        isOpen: true,
+                        title: "تأكيد مسح بيانات الشهر",
+                        message: `هل أنت متأكد نهائياً من مسح كافة بيانات وأهداف شهر ${m} من جميع الموظفين؟ هذا الإجراء لا يمكن التراجع عنه.`,
+                        confirmText: "نعم، مسح البيانات",
+                        cancelText: "إلغاء",
+                        theme: "rose",
+                        onConfirm: async () => {
+                          try {
+                            const newEmployees = employees.map(emp => ({
+                              ...emp,
+                              performance: emp.performance.filter(p => p.month !== m)
+                            }));
+                            const newHistorical = { ...historicalTargets };
+                            if (newHistorical[m]) {
+                              delete newHistorical[m];
+                            }
+                            await onUpdateEmployees(newEmployees);
+                            await onUpdateTargets(targetsChat, targetsUniversal, bannerNotice, maintenanceMode, newHistorical);
+                            setDialogAlert({ isOpen: true, title: "نجاح", message: `تم مسح بيانات شهر ${m} بنجاح من جميع السجلات`, type: "success" });
+                            select.value = "";
+                          } catch (e) {
+                            setDialogAlert({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء المسح", type: "error" });
+                          }
+                        }
+                      });
+                    }}
+                    className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-all"
+                  >
+                    تنفيذ الحذف
+                  </button>
+                </div>
+              </div>
+            </div>
+            
           </div>
         )}
       </div>

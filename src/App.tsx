@@ -9,11 +9,12 @@ import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAU
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import AdminPanel from "./components/AdminPanel";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import WeeklyPerformance from "./components/WeeklyPerformance";
 import Auth from "./components/Auth";
 import MaintenancePage from "./components/MaintenancePage";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X
+  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar
 } from "lucide-react";
 import { 
   seedDatabaseIfEmpty, 
@@ -95,11 +96,11 @@ export default function App() {
   const [historicalTargets, setHistoricalTargets] = useState<HistoricalTargets>({});
   const [bannerNotice, setBannerNotice] = useState<string>("");
   const [dismissedNotice, setDismissedNotice] = useState<string>("");
-  const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
+  const [maintenancePages, setMaintenancePages] = useState<string[]>([]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Active view tab state: "dashboard" | "analytics" | "admin"
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "admin">("dashboard");
+  // Active view tab state: "dashboard" | "analytics" | "admin" | "weekly"
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "admin" | "weekly">("dashboard");
 
   // Support for dark mode
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -140,7 +141,7 @@ export default function App() {
           setTargetsChat(data.targetsChat);
           setTargetsUniversal(data.targetsUniversal);
           setHistoricalTargets(data.historicalTargets || {});
-          setMaintenanceMode(data.maintenanceMode);
+          setMaintenancePages(data.maintenancePages);
           setBannerNotice(prev => {
             if (prev !== data.bannerNotice) {
               setDismissedNotice("");
@@ -244,19 +245,19 @@ export default function App() {
   const handleUpdateBannerNotice = async (newNotice: string) => {
     setBannerNotice(newNotice);
     try {
-      await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenanceMode, historicalTargets);
+      await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenancePages, historicalTargets);
     } catch (e) {
       console.error("Failed to save active notice to Cloud:", e);
     }
   };
 
-  // Update maintenance mode handler
-  const handleUpdateMaintenanceMode = async (newMaintenanceMode: boolean) => {
-    setMaintenanceMode(newMaintenanceMode);
+  // Update maintenance pages handler
+  const handleUpdateMaintenancePages = async (newMaintenancePages: string[]) => {
+    setMaintenancePages(newMaintenancePages);
     try {
-      await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenanceMode, historicalTargets);
+      await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenancePages, historicalTargets);
     } catch (e) {
-      console.error("Failed to save active maintenance mode to Cloud:", e);
+      console.error("Failed to save active maintenance pages to Cloud:", e);
     }
   };
 
@@ -285,7 +286,7 @@ export default function App() {
     }} />;
   }
 
-  if (userRole === "leader" && maintenanceMode) {
+  if (userRole === "leader" && maintenancePages.includes(activeTab)) {
     return <MaintenancePage />;
   }
 
@@ -415,6 +416,18 @@ export default function App() {
             )}
 
             <button
+              onClick={() => setActiveTab("weekly")}
+              className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                activeTab === "weekly" 
+                  ? "bg-we-purple text-white shadow-md font-bold" 
+                  : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+              }`}
+            >
+              <Calendar className="w-4 h-4 shrink-0 text-we-pink" />
+              <span>الأداء الأسبوعي</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("analytics")}
               className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === "analytics" 
@@ -503,6 +516,13 @@ export default function App() {
                 historicalTargets={historicalTargets}
               />
             )}
+            {activeTab === "weekly" && (
+              <WeeklyPerformance 
+                employees={employees} 
+                targetsChat={targetsChat} 
+                targetsUniversal={targetsUniversal}
+              />
+            )}
             {activeTab === "admin" && (
               <AdminPanel 
                 employees={employees} 
@@ -510,9 +530,9 @@ export default function App() {
                 targetsUniversal={targetsUniversal} 
                 historicalTargets={historicalTargets}
                 bannerNotice={bannerNotice}
-                maintenanceMode={maintenanceMode}
+                maintenancePages={maintenancePages}
                 onUpdateBannerNotice={handleUpdateBannerNotice}
-                onUpdateMaintenanceMode={handleUpdateMaintenanceMode}
+                onUpdateMaintenancePages={handleUpdateMaintenancePages}
                 onUpdateEmployees={handleUpdateEmployees}
                 onUpdateTargets={handleUpdateTargets}
               />
