@@ -353,26 +353,35 @@ export default function AdminPanel({
     setPassword("");
   };
 
-  const handleUpdateTargetsSubmit = (e: React.FormEvent) => {
+  const handleUpdateTargetsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (targetEditingMonth === "default") {
-      onUpdateTargets(targetFormChat, targetFormUniversal, localNotice, maintenanceMode, historicalTargets);
-    } else {
-      // Create new historical snapshot
-      const updatedHistorical = {
-        ...historicalTargets,
-        [targetEditingMonth]: {
-          chat: { ...targetFormChat },
-          universal: { ...targetFormUniversal }
-        }
-      };
-      onUpdateTargets(targetsChat, targetsUniversal, localNotice, maintenanceMode, updatedHistorical);
+    try {
+      if (targetEditingMonth === "default") {
+        await onUpdateTargets(targetFormChat, targetFormUniversal, localNotice, maintenancePages, historicalTargets);
+      } else {
+        // Create new historical snapshot
+        const updatedHistorical = {
+          ...historicalTargets,
+          [targetEditingMonth]: {
+            chat: { ...targetFormChat },
+            universal: { ...targetFormUniversal }
+          }
+        };
+        await onUpdateTargets(targetsChat, targetsUniversal, localNotice, maintenancePages, updatedHistorical);
+      }
+      setIsSuccessTargets(true);
+      setTimeout(() => setIsSuccessTargets(false), 3000);
+    } catch (e: any) {
+      setDialogAlert({
+        isOpen: true,
+        title: "خطأ في الحفظ السحابي",
+        message: "تم حفظ التعديلات محلياً، ولكن فشل الرفع السحابي (ربما لتجاوز الحد المسموح Quota).",
+        type: "error"
+      });
     }
-    setIsSuccessTargets(true);
-    setTimeout(() => setIsSuccessTargets(false), 3000);
   };
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanId = newEmp.id.trim();
     if (!cleanId || !newEmp.fullName.trim() || !newEmp.newTL.trim()) {
@@ -382,53 +391,57 @@ export default function AdminPanel({
 
     const existingIdx = employees.findIndex(emp => emp.id === cleanId);
 
-    if (existingIdx > -1) {
-      // Update existing employee, keeping performance indicators!
-      const updatedEmployees = [...employees];
-      updatedEmployees[existingIdx] = {
-        ...updatedEmployees[existingIdx],
-        fullName: newEmp.fullName.trim(),
-        newTL: newEmp.newTL.trim(),
-        newSV: newEmp.newSV.trim() || "Ehab Heness",
-        mobileNumber: newEmp.mobileNumber.trim(),
-        nationalId: newEmp.nationalId.trim(),
-        location: newEmp.location,
-        lob: newEmp.lob
-      };
-      onUpdateEmployees(updatedEmployees);
-      setEmpSuccess(`تم تحديث بيانات الموظف بنجاح لكود الموظف ${cleanId} (الربط تم بنجاح ويحمي تقييماته القديمة)!`);
-    } else {
-      // Create new employee
-      const created: Employee = {
-        id: cleanId,
-        fullName: newEmp.fullName.trim(),
-        newTL: newEmp.newTL.trim(),
-        newSV: newEmp.newSV.trim() || "Ehab Heness",
-        mobileNumber: newEmp.mobileNumber.trim(),
-        nationalId: newEmp.nationalId.trim(),
-        location: newEmp.location,
-        lob: newEmp.lob,
-        performance: []
-      };
-      onUpdateEmployees([...employees, created]);
-      setEmpSuccess("تمت إضافة الموظف الجديد بنجاح!");
-    }
+    try {
+      if (existingIdx > -1) {
+        // Update existing employee, keeping performance indicators!
+        const updatedEmployees = [...employees];
+        updatedEmployees[existingIdx] = {
+          ...updatedEmployees[existingIdx],
+          fullName: newEmp.fullName.trim(),
+          newTL: newEmp.newTL.trim(),
+          newSV: newEmp.newSV.trim() || "Ehab Heness",
+          mobileNumber: newEmp.mobileNumber.trim(),
+          nationalId: newEmp.nationalId.trim(),
+          location: newEmp.location,
+          lob: newEmp.lob
+        };
+        await onUpdateEmployees(updatedEmployees);
+        setEmpSuccess(`تم تحديث بيانات الموظف بنجاح لكود الموظف ${cleanId} (الربط تم بنجاح ويحمي تقييماته القديمة)!`);
+      } else {
+        // Create new employee
+        const created: Employee = {
+          id: cleanId,
+          fullName: newEmp.fullName.trim(),
+          newTL: newEmp.newTL.trim(),
+          newSV: newEmp.newSV.trim() || "Ehab Heness",
+          mobileNumber: newEmp.mobileNumber.trim(),
+          nationalId: newEmp.nationalId.trim(),
+          location: newEmp.location,
+          lob: newEmp.lob,
+          performance: []
+        };
+        await onUpdateEmployees([...employees, created]);
+        setEmpSuccess("تمت إضافة الموظف الجديد بنجاح!");
+      }
 
-    setNewEmp({
-      id: "",
-      fullName: "",
-      newTL: "",
-      newSV: "",
-      mobileNumber: "",
-      nationalId: "",
-      location: "WFH",
-      lob: "Chat / ADSL",
-    });
-    setEmpError("");
-    setTimeout(() => setEmpSuccess(""), 5000);
+      setNewEmp({
+        id: "",
+        fullName: "",
+        newTL: "",
+        newSV: "",
+        mobileNumber: "",
+        nationalId: "",
+        location: "WFH",
+        lob: "Chat / ADSL",
+      });
+      setEmpError("");
+      setTimeout(() => setEmpSuccess(""), 5000);
+    } catch (e: any) {
+      setEmpError("فشل الحفظ السحابي (Quota Exceeded)، تم حفظه محلياً فقط.");
+    }
   };
 
-  const handleArchiveEmployee = (id: string) => {
+  const handleArchiveEmployee = async (id: string) => {
     const employeeToUpdate = employees.find(e => e.id === id);
     if (!employeeToUpdate) return;
     
@@ -441,16 +454,25 @@ export default function AdminPanel({
       return emp;
     });
 
-    onUpdateEmployees(updated);
-    
-    setDialogAlert({
-      isOpen: true,
-      title: isNowArchived ? "تمت الأرشفة بنجاح" : "تم إعادة التنشيط بنجاح",
-      message: isNowArchived 
-        ? `تم أرشفة الموظف "${employeeToUpdate.fullName}" بنجاح. لن يظهر بعد الآن في لوحة الإحصائيات أو تقارير الفريق المشروح.`
-        : `تم إعادة تنشيط الموظف "${employeeToUpdate.fullName}" بنجاح. سيظهر الآن في جميع التقارير والإحصائيات الخاصة بالفريق.`,
-      type: "success"
-    });
+    try {
+      await onUpdateEmployees(updated);
+      
+      setDialogAlert({
+        isOpen: true,
+        title: isNowArchived ? "تمت الأرشفة بنجاح" : "تم إعادة التنشيط بنجاح",
+        message: isNowArchived 
+          ? `تم أرشفة الموظف "${employeeToUpdate.fullName}" بنجاح. لن يظهر بعد الآن في لوحة الإحصائيات أو تقارير الفريق المشروح.`
+          : `تم إعادة تنشيط الموظف "${employeeToUpdate.fullName}" بنجاح. سيظهر الآن في جميع التقارير والإحصائيات الخاصة بالفريق.`,
+        type: "success"
+      });
+    } catch (e) {
+      setDialogAlert({
+        isOpen: true,
+        title: "خطأ",
+        message: "تم حفظ التعديلات محلياً فقط. تم تجاوز الحد الأقصى للسحابة.",
+        type: "error"
+      });
+    }
   };
 
   const handleDeleteEmployee = (id: string) => {
@@ -464,16 +486,26 @@ export default function AdminPanel({
       confirmText: "نعم، احذف الموظف",
       cancelText: "إلغاء الأمر",
       theme: "rose",
-      onConfirm: () => {
+      onConfirm: async () => {
         const updated = employees.filter(emp => emp.id !== id);
-        onUpdateEmployees(updated);
-        setDialogConfirm(prev => ({ ...prev, isOpen: false }));
-        setDialogAlert({
-          isOpen: true,
-          title: "تم الحذف بنجاح",
-          message: `تمت إزالة الموظف "${name}" وسجلاته بالكامل بنجاح.`,
-          type: "success"
-        });
+        try {
+          await onUpdateEmployees(updated);
+          setDialogConfirm(prev => ({ ...prev, isOpen: false }));
+          setDialogAlert({
+            isOpen: true,
+            title: "تم الحذف بنجاح",
+            message: `تمت إزالة الموظف "${name}" وسجلاته بالكامل بنجاح.`,
+            type: "success"
+          });
+        } catch (e) {
+          setDialogConfirm(prev => ({ ...prev, isOpen: false }));
+          setDialogAlert({
+            isOpen: true,
+            title: "تنبيه الحد الأقصى",
+            message: "تم حفظ التعديلات محلياً فقط. تم تجاوز الحد الأقصى للسحابة المجانية.",
+            type: "error"
+          });
+        }
       }
     });
   };
@@ -1683,7 +1715,7 @@ export default function AdminPanel({
     e.target.value = "";
   };
 
-  const handleUploadKPI = () => {
+  const handleUploadKPI = async () => {
     if (!pasteKpiText.trim()) {
       setPasteError(`الرجاء لصق خلايا من شيت الـ KPI لشهر ${pasteKpiMonth} أولاً.`);
       return;
@@ -2192,20 +2224,24 @@ export default function AdminPanel({
           `• التقييم النهائي: "${combinedHeaders[scoreIdx] || `العمود رقم ${scoreIdx + 1}`}"`;
       }
 
-      onUpdateEmployees(updatedEmployees);
+      await onUpdateEmployees(updatedEmployees);
       setPasteSuccess(`بنجاح! تم تحديث مؤشرات الأداء لـ ${matchedCount} موظفاً لشهر ${pasteKpiMonth}. (تم إنشاء ${draftedCount} ملفات كادر مؤقتة للأكواد غير المسجلة مسبقاً) ${mappingReport}`);
       setPasteKpiText("");
       setPasteError("");
       setTimeout(() => setPasteSuccess(""), 15000); // More time to read the mapping feedback
-    } catch (e) {
-      setPasteError("حدث خطأ أثناء معالجة شيت الـ KPI. يرجى التحقق من النسخ الصحيح للأعمدة.");
+    } catch (e: any) {
+      if (e.name === 'FirebaseError' || e.message?.includes('Quota')) {
+        setPasteError("تم حفظ البيانات محلياً. الحد الأقصى للاستخدام السحابي نفد.");
+      } else {
+        setPasteError("حدث خطأ أثناء معالجة شيت الـ KPI. يرجى التحقق من النسخ الصحيح للأعمدة.");
+      }
     }
   };
 
 
 
   // Submit Manual Single entry
-  const handleManualKpiSubmit = (e: React.FormEvent) => {
+  const handleManualKpiSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!kpiEmployeeId) {
       setDialogAlert({
@@ -2236,9 +2272,18 @@ export default function AdminPanel({
       return emp;
     });
 
-    onUpdateEmployees(updatedEmployees);
-    setManualSuccess(`تم رصد تقييم شهر ${manualKpi.month} بنجاح!`);
-    setTimeout(() => setManualSuccess(""), 4000);
+    try {
+      await onUpdateEmployees(updatedEmployees);
+      setManualSuccess(`تم رصد تقييم شهر ${manualKpi.month} بنجاح!`);
+      setTimeout(() => setManualSuccess(""), 4000);
+    } catch (err) {
+      setDialogAlert({
+        isOpen: true,
+        title: "تنبيه الحد الأقصى",
+        message: "تم حفظ التعديلات محلياً فقط. تجاوزت حصة الاستخدام المجانية للسحابة، ستعمل التعديلات لديك فقط.",
+        type: "error"
+      });
+    }
   };
 
   // If NOT logged in, show elegant custom Login screen
@@ -4145,7 +4190,7 @@ export default function AdminPanel({
                                   try {
                                     await onUpdateEmployees(data.employees);
                                     if (data.targetsChat && data.targetsUniversal) {
-                                      await onUpdateTargets(data.targetsChat, data.targetsUniversal, bannerNotice, maintenanceMode, data.historicalTargets || {});
+                                      await onUpdateTargets(data.targetsChat, data.targetsUniversal, bannerNotice, maintenancePages, data.historicalTargets || {});
                                     }
                                     setDialogAlert({ isOpen: true, title: "نجاح", message: "تم استعادة البيانات بنجاح", type: "success" });
                                   } catch (e) {
@@ -4217,7 +4262,7 @@ export default function AdminPanel({
                               delete newHistorical[m];
                             }
                             await onUpdateEmployees(newEmployees);
-                            await onUpdateTargets(targetsChat, targetsUniversal, bannerNotice, maintenanceMode, newHistorical);
+                            await onUpdateTargets(targetsChat, targetsUniversal, bannerNotice, maintenancePages, newHistorical);
                             setDialogAlert({ isOpen: true, title: "نجاح", message: `تم مسح بيانات شهر ${m} بنجاح من جميع السجلات`, type: "success" });
                             select.value = "";
                           } catch (e) {
@@ -4260,7 +4305,12 @@ export default function AdminPanel({
             <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={dialogConfirm.onConfirm}
+                onClick={async () => {
+                  if (dialogConfirm.onConfirm) {
+                    await dialogConfirm.onConfirm();
+                  }
+                  setDialogConfirm(prev => ({ ...prev, isOpen: false }));
+                }}
                 className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold text-white transition-all shadow-sm ${
                   dialogConfirm.theme === "rose" 
                     ? "bg-rose-600 hover:bg-rose-700 active:bg-rose-800" 

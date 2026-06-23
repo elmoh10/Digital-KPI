@@ -67,14 +67,18 @@ export async function seedDatabaseIfEmpty() {
       console.log("Database seeded successfully with default WE employees.");
     }
   } catch (error) {
-    console.error("Error seeding Firebase database:", error);
+    console.warn("Error seeding Firebase database:", error);
+    throw error;
   }
 }
 
 /**
  * Sync configuration from Cloud Database.
  */
-export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenancePages: string[] }) => void) {
+export function subscribeToConfig(
+  onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenancePages: string[] }) => void,
+  onError?: (err: Error) => void
+) {
   const configRef = doc(db, "we_config", "general");
   return onSnapshot(configRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -88,14 +92,18 @@ export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; ta
       });
     }
   }, (err) => {
-    console.error("Error subscribing to general config:", err);
+    console.warn("Error subscribing to general config:", err);
+    if (onError) onError(err);
   });
 }
 
 /**
  * Sync employees list from Cloud Database.
  */
-export function subscribeToEmployees(onUpdate: (employees: Employee[]) => void) {
+export function subscribeToEmployees(
+  onUpdate: (employees: Employee[]) => void,
+  onError?: (err: Error) => void
+) {
   const empColRef = collection(db, "employees");
   return onSnapshot(empColRef, (colSnap) => {
     const list: Employee[] = [];
@@ -105,7 +113,8 @@ export function subscribeToEmployees(onUpdate: (employees: Employee[]) => void) 
     // Sort or return as-is
     onUpdate(list);
   }, (err) => {
-    console.error("Error subscribing to employees collection:", err);
+    console.warn("Error subscribing to employees collection:", err);
+    if (onError) onError(err);
   });
 }
 
@@ -207,7 +216,7 @@ export async function updatePresence() {
       lastSeen: Date.now()
     }, { merge: true });
   } catch (e) {
-    console.error("Failed to update presence", e);
+    console.warn("Failed to update presence", e);
   }
 }
 
@@ -219,7 +228,7 @@ export async function removePresence() {
     const presenceRef = doc(db, "presence", sessionId);
     await deleteDoc(presenceRef);
   } catch (e) {
-    console.error("Failed to remove presence", e);
+    console.warn("Failed to remove presence", e);
   }
 }
 
@@ -236,7 +245,7 @@ export async function getOnlineCount() {
     const snapshot = await getCountFromServer(q);
     return snapshot.data().count || 1; // At least 1 (self)
   } catch (e) {
-    console.error("Failed to get online count", e);
+    console.warn("Failed to get online count", e);
     return 1;
   }
 }

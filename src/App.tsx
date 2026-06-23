@@ -130,6 +130,27 @@ export default function App() {
     let unsubConfig: (() => void) | null = null;
     let unsubEmployees: (() => void) | null = null;
 
+    const loadLocalFallback = () => {
+      try {
+        const storedEmployees = localStorage.getItem("kpi_employees_v1");
+        const storedTargetsChat = localStorage.getItem("kpi_targets_chat_v1");
+        const storedTargetsUniversal = localStorage.getItem("kpi_targets_universal_v1");
+        if (storedEmployees) setEmployees(JSON.parse(storedEmployees));
+        else setEmployees(INITIAL_EMPLOYEES);
+
+        if (storedTargetsChat) setTargetsChat(JSON.parse(storedTargetsChat));
+        else setTargetsChat(DEFAULT_KPI_TARGETS_CHAT);
+
+        if (storedTargetsUniversal) setTargetsUniversal(JSON.parse(storedTargetsUniversal));
+        else setTargetsUniversal(DEFAULT_KPI_TARGETS_UNIVERSAL);
+      } catch (localErr) {
+        setEmployees(INITIAL_EMPLOYEES);
+        setTargetsChat(DEFAULT_KPI_TARGETS_CHAT);
+        setTargetsUniversal(DEFAULT_KPI_TARGETS_UNIVERSAL);
+      }
+      setIsDataLoaded(true);
+    };
+
     const initFirebase = async () => {
       try {
         await seedDatabaseIfEmpty();
@@ -148,6 +169,9 @@ export default function App() {
             }
             return data.bannerNotice;
           });
+        }, (err) => {
+           console.warn("Config subscription failed, using local fallback.", err);
+           loadLocalFallback();
         });
 
         unsubEmployees = subscribeToEmployees((list) => {
@@ -160,27 +184,13 @@ export default function App() {
             setEmployees([]);
           }
           setIsDataLoaded(true);
+        }, (err) => {
+           console.warn("Employees subscription failed, using local fallback.", err);
+           loadLocalFallback();
         });
       } catch (err) {
-        console.error("Failed to load Firebase cloud database, falling back safely", err);
-        try {
-          const storedEmployees = localStorage.getItem("kpi_employees_v1");
-          const storedTargetsChat = localStorage.getItem("kpi_targets_chat_v1");
-          const storedTargetsUniversal = localStorage.getItem("kpi_targets_universal_v1");
-          if (storedEmployees) setEmployees(JSON.parse(storedEmployees));
-          else setEmployees(INITIAL_EMPLOYEES);
-
-          if (storedTargetsChat) setTargetsChat(JSON.parse(storedTargetsChat));
-          else setTargetsChat(DEFAULT_KPI_TARGETS_CHAT);
-
-          if (storedTargetsUniversal) setTargetsUniversal(JSON.parse(storedTargetsUniversal));
-          else setTargetsUniversal(DEFAULT_KPI_TARGETS_UNIVERSAL);
-        } catch (localErr) {
-          setEmployees(INITIAL_EMPLOYEES);
-          setTargetsChat(DEFAULT_KPI_TARGETS_CHAT);
-          setTargetsUniversal(DEFAULT_KPI_TARGETS_UNIVERSAL);
-        }
-        setIsDataLoaded(true);
+        console.warn("Failed to load Firebase cloud database, falling back safely", err);
+        loadLocalFallback();
       }
     };
 
@@ -201,7 +211,8 @@ export default function App() {
     try {
       await updateAllEmployeesInCloud(updatedList);
     } catch (e) {
-      console.error("Failed to save updated list to Cloud:", e);
+      console.warn("Failed to save updated list to Cloud:", e);
+      throw e;
     }
   };
 
@@ -210,7 +221,7 @@ export default function App() {
     updatedTargetsChat: KPITargets, 
     updatedTargetsUniversal: KPITargets,
     newNotice?: string,
-    newMaintenanceMode?: boolean,
+    newMaintenancePages?: string[],
     updatedHistoricalTargets?: HistoricalTargets
   ) => {
     setTargetsChat(updatedTargetsChat);
@@ -228,16 +239,17 @@ export default function App() {
       activeNotice = newNotice;
     }
 
-    let activeMaintenanceMode = maintenanceMode;
-    if (newMaintenanceMode !== undefined) {
-      setMaintenanceMode(newMaintenanceMode);
-      activeMaintenanceMode = newMaintenanceMode;
+    let activeMaintenancePages = maintenancePages;
+    if (newMaintenancePages !== undefined) {
+      setMaintenancePages(newMaintenancePages);
+      activeMaintenancePages = newMaintenancePages;
     }
     
     try {
-      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice, activeMaintenanceMode, resolvedHistorical);
+      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice, activeMaintenancePages, resolvedHistorical);
     } catch (e) {
-      console.error("Failed to save updated limits to Cloud:", e);
+      console.warn("Failed to save updated limits to Cloud:", e);
+      throw e;
     }
   };
 
@@ -247,7 +259,8 @@ export default function App() {
     try {
       await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenancePages, historicalTargets);
     } catch (e) {
-      console.error("Failed to save active notice to Cloud:", e);
+      console.warn("Failed to save active notice to Cloud:", e);
+      throw e;
     }
   };
 
@@ -257,7 +270,8 @@ export default function App() {
     try {
       await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenancePages, historicalTargets);
     } catch (e) {
-      console.error("Failed to save active maintenance pages to Cloud:", e);
+      console.warn("Failed to save active maintenance pages to Cloud:", e);
+      throw e;
     }
   };
 
