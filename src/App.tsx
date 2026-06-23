@@ -287,7 +287,7 @@ export default function App() {
   }
 
   if (userRole === "leader" && maintenancePages.includes(activeTab)) {
-    return <MaintenancePage />;
+    return <MaintenancePage onBack={() => setActiveTab("dashboard")} />;
   }
 
   if (!isDataLoaded) {
