@@ -4,21 +4,28 @@
  */
 
 import React, { useState, useMemo } from "react";
-import { Employee, KPITargets } from "../types";
+import { Employee, KPITargets, HistoricalTargets } from "../types";
 import { 
   TrendingUp, Award, Users, ShieldAlert, ArrowUpRight, BarChart3, 
-  HelpCircle, Sparkles, Filter, Calendar, Zap, AlertCircle
+  HelpCircle, Sparkles, Filter, Calendar, Zap, AlertCircle, LineChart as LineChartIcon
 } from "lucide-react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { ahtToSeconds, secondsToAht, sortMonths } from "./EmployeeDashboard";
+import { 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from "recharts";
 
 interface AnalyticsDashboardProps {
   employees: Employee[];
   targetsChat: KPITargets;
   targetsUniversal: KPITargets;
+  historicalTargets?: HistoricalTargets;
 }
 
-export default function AnalyticsDashboard({ employees, targetsChat, targetsUniversal }: AnalyticsDashboardProps) {
+export default function AnalyticsDashboard({ employees: rawEmployees, targetsChat, targetsUniversal, historicalTargets }: AnalyticsDashboardProps) {
+  // Only include non-archived employees in analytics by default
+  const employees = useMemo(() => rawEmployees.filter(emp => !emp.isArchived), [rawEmployees]);
+
   // Available Months Aggregated
   const allMonths = useMemo(() => {
     const monthsSet = new Set<string>();
@@ -40,6 +47,7 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
   // Selected Month and TL for report
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedTL, setSelectedTL] = useState<string>("All");
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (allMonths.length > 0 && !selectedMonth) {
@@ -47,9 +55,49 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
     }
   }, [allMonths, selectedMonth]);
 
+  // Selected Employee Chart Data
+  const empChartData = useMemo(() => {
+    if (!selectedEmpId) return null;
+    const emp = employees.find(e => e.id === selectedEmpId);
+    if (!emp) return null;
+
+    const availableMonths = emp.performance.map(p => p.month);
+    const sortedMonths = sortMonths(availableMonths);
+
+    const chartData = sortedMonths.map(month => {
+      const p = emp.performance.find(perf => perf.month === month)!;
+      
+      let targetForMonthChat = targetsChat;
+      let targetForMonthUniversal = targetsUniversal;
+      if (historicalTargets && historicalTargets[month]) {
+        targetForMonthChat = historicalTargets[month].chat;
+        targetForMonthUniversal = historicalTargets[month].universal;
+      }
+
+      return {
+        month: p.month,
+        score: p.finalScore,
+        target: emp.lob && !emp.lob.toLowerCase().includes("adsl") ? targetForMonthUniversal.finalScore : targetForMonthChat.finalScore
+      };
+    });
+    
+    return {
+      name: emp.fullName,
+      id: emp.id,
+      chartData
+    };
+  }, [selectedEmpId, employees, targetsChat, targetsUniversal, historicalTargets]);
+
   // Overall statistics for the selected month and selected TL
   const monthStats = useMemo(() => {
     if (!selectedMonth || employees.length === 0) return null;
+
+    let targetForMonthChat = targetsChat;
+    let targetForMonthUniversal = targetsUniversal;
+    if (historicalTargets && historicalTargets[selectedMonth]) {
+      targetForMonthChat = historicalTargets[selectedMonth].chat;
+      targetForMonthUniversal = historicalTargets[selectedMonth].universal;
+    }
 
     let totalScore = 0;
     let totalCSI = 0;
@@ -76,7 +124,7 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
           ahtCount++;
         }
 
-        const empTargets = emp.lob && !emp.lob.toLowerCase().includes("adsl") ? targetsUniversal : targetsChat;
+        const empTargets = emp.lob && !emp.lob.toLowerCase().includes("adsl") ? targetForMonthUniversal : targetForMonthChat;
         if (perf.finalScore >= empTargets.finalScore) {
           passingTargetsCount++;
         }
@@ -317,7 +365,7 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
               {monthStats.needsCoaching.length > 0 ? (
                 monthStats.needsCoaching.map(r => (
-                  <div key={r.id} className="p-3 bg-rose-50/50 border border-rose-100/30 rounded-2xl flex justify-between items-center">
+                  <div key={r.id} className="p-3 bg-rose-50/50 border border-rose-100/30 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setSelectedEmpId(r.id)}>
                     <span className="font-mono text-rose-700 font-bold text-xs">{r.score}% :التقييم</span>
                     <div className="text-right">
                       <p className="font-semibold text-xs text-slate-800">{r.name}</p>
@@ -333,6 +381,80 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
             </div>
           </div>
 
+          {/* Individual Employee Performance Chart */}
+          <AnimatePresence mode="wait">
+            {empChartData && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right" 
+                dir="rtl"
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-slate-800 font-display font-bold text-sm flex items-center gap-2 justify-end">
+                      <LineChartIcon className="w-5 h-5 text-we-purple" />
+                      مقارنة الأداء التاريخي للموظف
+                    </h3>
+                    <p className="text-slate-500 text-xs font-semibold mt-1">
+                      {empChartData.name} <span className="font-mono text-[10px] text-slate-400">({empChartData.id})</span>
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedEmpId(null)}
+                    className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors"
+                  >
+                    إغلاق المخطط
+                  </button>
+                </div>
+
+                <div className="w-full h-[250px]" dir="ltr">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={empChartData.chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#512588" stopOpacity={0.4}/>
+                          <stop offset="95%" stopColor="#512588" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={10} />
+                      <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', textAlign: 'right', fontSize: '12px', fontWeight: 'bold' }}
+                        labelStyle={{ color: '#64748b', marginBottom: '4px' }}
+                        itemStyle={{ color: '#512588' }}
+                        formatter={(value: number) => [`${value}%`, 'التقييم']}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="#512588" 
+                        strokeWidth={4}
+                        fillOpacity={1} 
+                        fill="url(#colorScore)" 
+                        activeDot={{ r: 6, fill: "#d11270", strokeWidth: 0 }}
+                      />
+                      <Area 
+                        type="step" 
+                        dataKey="target" 
+                        stroke="#10b981" 
+                        strokeWidth={2}
+                        strokeDasharray="4 4"
+                        fill="none" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="flex justify-center items-center gap-6 mt-4 text-[10px] font-bold text-slate-500">
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-we-purple"></div>تقييم الموظف</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded border-b-2 border-dashed border-emerald-500"></div>المستهدف المطلوب</div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Full Team Table */}
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" dir="rtl">
             <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
@@ -340,7 +462,8 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
                 <Users className="w-5 h-5 text-we-purple" />
                 قائمة الفريق بالكامل
               </h3>
-              <span className="bg-white px-3 py-1 rounded-full text-xs font-bold text-we-purple border border-slate-200">
+              <p className="text-slate-400 text-xs mr-2">انقر على أي موظف لعرض المخطط البياني التاريخي لأدائه</p>
+              <span className="mr-auto bg-white px-3 py-1 rounded-full text-xs font-bold text-we-purple border border-slate-200">
                 {monthStats.fullTeamList.length} موظف
               </span>
             </div>
@@ -359,7 +482,13 @@ export default function AnalyticsDashboard({ employees, targetsChat, targetsUniv
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {monthStats.fullTeamList.map((emp) => (
-                    <tr key={emp.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr 
+                      key={emp.id} 
+                      onClick={() => setSelectedEmpId(emp.id)}
+                      className={`transition-colors cursor-pointer ${
+                        selectedEmpId === emp.id ? 'bg-purple-50/50' : 'hover:bg-slate-50/80'
+                      }`}
+                    >
                       <td className="px-6 py-4">
                         <div className="font-semibold text-slate-800">{emp.name}</div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.id}</div>

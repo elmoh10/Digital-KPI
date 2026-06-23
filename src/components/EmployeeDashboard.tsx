@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo } from "react";
-import { Employee, KPITargets, MonthlyPerformance } from "../types";
+import { Employee, KPITargets, MonthlyPerformance, HistoricalTargets } from "../types";
 import { 
   User, Phone, MapPin, Layers, Award, ShieldAlert, CheckCircle2, 
   HelpCircle, Calendar, TrendingUp, AlertTriangle, FileText, 
@@ -17,6 +17,7 @@ interface EmployeeDashboardProps {
   employees: Employee[];
   targetsChat: KPITargets;
   targetsUniversal: KPITargets;
+  historicalTargets?: HistoricalTargets;
 }
 
 // Helper: Convert AHT "MM:SS" to seconds
@@ -65,7 +66,7 @@ export function sortMonths(months: string[]): string[] {
   });
 }
 
-export default function EmployeeDashboard({ employees, targetsChat, targetsUniversal }: EmployeeDashboardProps) {
+export default function EmployeeDashboard({ employees, targetsChat, targetsUniversal, historicalTargets }: EmployeeDashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>(employees[0]?.id || "");
   const [activeTab, setActiveTab] = useState<"card" | "trend" | "sheet">("card");
@@ -93,22 +94,29 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
     return employees.find(emp => emp.id === selectedId) || null;
   }, [employees, selectedId]);
 
-  // Dynamically resolve target thresholds based on the employee's LOB (Chat/ADSL or Universal)
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+
+  // Dynamically resolve target thresholds based on the employee's LOB and active month
   const targets = useMemo(() => {
-    if (currentEmployee?.lob && !currentEmployee.lob.toLowerCase().includes("adsl")) {
-      return targetsUniversal;
+    let activeChat = targetsChat;
+    let activeUniversal = targetsUniversal;
+
+    if (historicalTargets && selectedMonth && historicalTargets[selectedMonth]) {
+      activeChat = historicalTargets[selectedMonth].chat;
+      activeUniversal = historicalTargets[selectedMonth].universal;
     }
-    return targetsChat;
-  }, [currentEmployee, targetsChat, targetsUniversal]);
+
+    if (currentEmployee?.lob && !currentEmployee.lob.toLowerCase().includes("adsl")) {
+      return activeUniversal;
+    }
+    return activeChat;
+  }, [currentEmployee, targetsChat, targetsUniversal, historicalTargets, selectedMonth]);
 
   // List of unique months available in current employee data
   const availableMonths = useMemo(() => {
     if (!currentEmployee) return [];
     return sortMonths(currentEmployee.performance.map(p => p.month));
   }, [currentEmployee]);
-
-  // Active month state - default to the latest available month
-  const [selectedMonth, setSelectedMonth] = useState<string>("");
 
   React.useEffect(() => {
     if (availableMonths.length > 0) {
@@ -127,9 +135,10 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
   // Filter employees for search list
   const filteredEmployees = useMemo(() => {
-    if (!searchQuery.trim()) return employees.slice(0, 5);
+    const activeEmployees = employees.filter(emp => !emp.isArchived);
+    if (!searchQuery.trim()) return activeEmployees.slice(0, 5);
     const query = searchQuery.toLowerCase();
-    return employees.filter(
+    return activeEmployees.filter(
       emp => 
         emp.fullName.toLowerCase().includes(query) || 
         emp.id.toLowerCase().includes(query) ||

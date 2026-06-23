@@ -9,7 +9,7 @@ import { Employee, KPITargets, MonthlyPerformance } from "../types";
 import { 
   Lock, KeyRound, Check, Edit3, Plus, Trash2, Database, Upload, 
   HelpCircle, Settings, UserPlus, RefreshCw, LogOut, CheckCircle2,
-  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search
+  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History
 } from "lucide-react";
 import { motion } from "motion/react";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS } from "../data";
@@ -18,12 +18,19 @@ interface AdminPanelProps {
   employees: Employee[];
   targetsChat: KPITargets;
   targetsUniversal: KPITargets;
+  historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>;
   bannerNotice?: string;
   maintenanceMode?: boolean;
   onUpdateBannerNotice?: (notice: string) => void;
   onUpdateMaintenanceMode?: (status: boolean) => void;
   onUpdateEmployees: (updated: Employee[]) => void;
-  onUpdateTargets: (updatedChat: KPITargets, updatedUniversal: KPITargets, updatedNotice?: string, updatedMaintenanceMode?: boolean) => void;
+  onUpdateTargets: (
+    updatedChat: KPITargets, 
+    updatedUniversal: KPITargets, 
+    updatedNotice?: string, 
+    updatedMaintenanceMode?: boolean,
+    updatedHistoricalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>
+  ) => void;
 }
 
 export interface KpiMappingConfig {
@@ -95,10 +102,11 @@ export default function AdminPanel({
   employees,
   targetsChat,
   targetsUniversal,
+  historicalTargets = {},
   bannerNotice = "",
   maintenanceMode = false,
-  onUpdateBannerNotice,
-  onUpdateMaintenanceMode,
+  onUpdateBannerNotice = () => {},
+  onUpdateMaintenanceMode = () => {},
   onUpdateEmployees,
   onUpdateTargets,
 }: AdminPanelProps) {
@@ -106,6 +114,7 @@ export default function AdminPanel({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem("admin_authenticated") === "true";
   });
+  
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -137,17 +146,39 @@ export default function AdminPanel({
   const [editingLOB, setEditingLOB] = useState<"chat" | "universal">("chat");
 
   // Form States
+  const [targetEditingMonth, setTargetEditingMonth] = useState<string>("default");
   const [targetFormChat, setTargetFormChat] = useState<KPITargets>({ ...targetsChat });
   const [targetFormUniversal, setTargetFormUniversal] = useState<KPITargets>({ ...targetsUniversal });
   const [isSuccessTargets, setIsSuccessTargets] = useState(false);
 
-  useEffect(() => {
-    setTargetFormChat({ ...targetsChat });
-  }, [targetsChat]);
+  const loadTargetsForMonth = (month: string) => {
+    if (month === "default") {
+      setTargetFormChat({ ...targetsChat });
+      setTargetFormUniversal({ ...targetsUniversal });
+    } else if (historicalTargets[month]) {
+      setTargetFormChat({ ...historicalTargets[month].chat });
+      setTargetFormUniversal({ ...historicalTargets[month].universal });
+    } else {
+      // If none, default to current but we are making a new entry
+      setTargetFormChat({ ...targetsChat });
+      setTargetFormUniversal({ ...targetsUniversal });
+    }
+  };
+
+  const handleMonthSelectionChange = (newMonth: string) => {
+    setTargetEditingMonth(newMonth);
+    loadTargetsForMonth(newMonth);
+  };
 
   useEffect(() => {
-    setTargetFormUniversal({ ...targetsUniversal });
-  }, [targetsUniversal]);
+    if (targetEditingMonth === "default") {
+      setTargetFormChat({ ...targetsChat });
+      setTargetFormUniversal({ ...targetsUniversal });
+    } else if (historicalTargets[targetEditingMonth]) {
+      setTargetFormChat({ ...historicalTargets[targetEditingMonth].chat });
+      setTargetFormUniversal({ ...historicalTargets[targetEditingMonth].universal });
+    }
+  }, [targetsChat, targetsUniversal, historicalTargets, targetEditingMonth]);
 
   // New Employee Form
   const [newEmp, setNewEmp] = useState({
@@ -163,17 +194,23 @@ export default function AdminPanel({
   const [empError, setEmpError] = useState("");
   const [empSuccess, setEmpSuccess] = useState("");
   const [empSearchQuery, setEmpSearchQuery] = useState("");
+  const [showArchived, setShowArchived] = useState<boolean>(false);
 
   const filteredEmployees = useMemo(() => {
     const q = empSearchQuery.trim().toLowerCase();
-    if (!q) return employees;
-    return employees.filter(emp => 
+    
+    // First filter by archiving status
+    const byArchiveStatus = employees.filter(emp => showArchived ? emp.isArchived : !emp.isArchived);
+    
+    if (!q) return byArchiveStatus;
+    
+    return byArchiveStatus.filter(emp => 
       emp.id.toLowerCase().includes(q) || 
       emp.fullName.toLowerCase().includes(q) || 
       emp.newTL.toLowerCase().includes(q) ||
       (emp.lob && emp.lob.toLowerCase().includes(q))
     );
-  }, [employees, empSearchQuery]);
+  }, [employees, empSearchQuery, showArchived]);
 
   // Paste Spreadsheet Data State
   const [uploadMode, setUploadMode] = useState<"employees" | "kpi" | "nps">("kpi");
@@ -317,7 +354,19 @@ export default function AdminPanel({
 
   const handleUpdateTargetsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateTargets(targetFormChat, targetFormUniversal, localNotice);
+    if (targetEditingMonth === "default") {
+      onUpdateTargets(targetFormChat, targetFormUniversal, localNotice, maintenanceMode, historicalTargets);
+    } else {
+      // Create new historical snapshot
+      const updatedHistorical = {
+        ...historicalTargets,
+        [targetEditingMonth]: {
+          chat: { ...targetFormChat },
+          universal: { ...targetFormUniversal }
+        }
+      };
+      onUpdateTargets(targetsChat, targetsUniversal, localNotice, maintenanceMode, updatedHistorical);
+    }
     setIsSuccessTargets(true);
     setTimeout(() => setIsSuccessTargets(false), 3000);
   };
@@ -376,6 +425,31 @@ export default function AdminPanel({
     });
     setEmpError("");
     setTimeout(() => setEmpSuccess(""), 5000);
+  };
+
+  const handleArchiveEmployee = (id: string) => {
+    const employeeToUpdate = employees.find(e => e.id === id);
+    if (!employeeToUpdate) return;
+    
+    const isNowArchived = !employeeToUpdate.isArchived;
+
+    const updated = employees.map(emp => {
+      if (emp.id === id) {
+        return { ...emp, isArchived: isNowArchived };
+      }
+      return emp;
+    });
+
+    onUpdateEmployees(updated);
+    
+    setDialogAlert({
+      isOpen: true,
+      title: isNowArchived ? "تمت الأرشفة بنجاح" : "تم إعادة التنشيط بنجاح",
+      message: isNowArchived 
+        ? `تم أرشفة الموظف "${employeeToUpdate.fullName}" بنجاح. لن يظهر بعد الآن في لوحة الإحصائيات أو تقارير الفريق المشروح.`
+        : `تم إعادة تنشيط الموظف "${employeeToUpdate.fullName}" بنجاح. سيظهر الآن في جميع التقارير والإحصائيات الخاصة بالفريق.`,
+      type: "success"
+    });
   };
 
   const handleDeleteEmployee = (id: string) => {
@@ -3587,16 +3661,30 @@ export default function AdminPanel({
                   </div>
                 </div>
 
-                {/* Search bar */}
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="ابحث باسم الموظف أو الكود..."
-                    value={empSearchQuery}
-                    onChange={(e) => setEmpSearchQuery(e.target.value)}
-                    className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-right outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                {/* Search bar & Archive Toggle */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="ابحث باسم الموظف أو الكود..."
+                      value={empSearchQuery}
+                      onChange={(e) => setEmpSearchQuery(e.target.value)}
+                      className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs text-right outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowArchived(!showArchived)}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border flex items-center justify-center gap-2 ${
+                      showArchived 
+                        ? "bg-slate-800 text-white border-slate-800" 
+                        : "bg-white text-slate-500 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Archive className="w-4 h-4" />
+                    {showArchived ? "إخفاء الموظفين المؤرشفين" : "عرض الموظفين المؤرشفين"}
+                  </button>
                 </div>
 
                 {/* Vertical list of employees */}
@@ -3609,9 +3697,11 @@ export default function AdminPanel({
                     filteredEmployees.map((emp) => (
                       <div 
                         key={emp.id} 
-                        className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-2 hover:bg-slate-100/50 transition-all group"
+                        className={`p-3 border rounded-2xl flex items-center justify-between gap-2 transition-all group ${
+                          emp.isArchived ? "bg-slate-100/80 border-slate-200" : "bg-slate-50 border-slate-100 hover:bg-slate-100/50"
+                        }`}
                       >
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
                           <button
                             type="button"
                             onClick={() => setNewEmp({
@@ -3632,6 +3722,17 @@ export default function AdminPanel({
                           </button>
                           <button
                             type="button"
+                            onClick={() => handleArchiveEmployee(emp.id)}
+                            className={`p-1.5 bg-white border border-slate-200 rounded-xl transition-all text-[11px] font-bold flex items-center gap-1 shrink-0 ${
+                              emp.isArchived ? "text-emerald-600 hover:bg-emerald-50" : "text-amber-600 hover:bg-amber-50"
+                            }`}
+                            title={emp.isArchived ? "تنشيط الموظف" : "أرشفة الموظف مؤقتاً"}
+                          >
+                            <Archive className="w-3.5 h-3.5" />
+                            <span>{emp.isArchived ? "تنشيط" : "أرشفة"}</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteEmployee(emp.id)}
                             className="p-1.5 bg-white border border-slate-200 text-rose-600 rounded-xl hover:bg-rose-50 transition-all text-[11px] font-bold flex items-center gap-1 shrink-0"
                             title="حذف الموظف نهائياً"
@@ -3643,6 +3744,7 @@ export default function AdminPanel({
                         <div className="text-right space-y-0.5">
                           <p className="text-slate-800 font-bold text-xs font-sans">
                             {emp.fullName} <span className="font-mono text-[10px] text-slate-400 font-normal">({emp.id})</span>
+                            {emp.isArchived && <span className="ml-2 px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded-md text-[9px] font-bold">مؤرشف</span>}
                           </p>
                           <div className="flex items-center gap-2 justify-end text-[10px] text-slate-400 font-semibold" dir="rtl">
                             <span>TL: {emp.newTL}</span>
@@ -3722,6 +3824,35 @@ export default function AdminPanel({
                 <p className="text-[10px] text-orange-600/80 leading-relaxed font-semibold">
                   تفعيل هذا الخيار سيقوم بحجب المنصة عن قادة الفرق (Leaders) وعرض صفحة "تحت التطوير" مؤقتاً حتى يتم إيقافه.
                 </p>
+              </div>
+
+              {/* Month Selection for Historical Targets */}
+              <div className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex flex-col gap-2 mb-4">
+                <span className="text-xs font-black text-slate-700 flex items-center gap-1.5 justify-start">
+                  <Calendar className="w-4 h-4 text-emerald-500" />
+                  ضبط الأهداف الشهرية (Historical Targets)
+                </span>
+                <p className="text-[10px] text-slate-400">
+                  هل تود تغيير الأهداف لشهر معين فقط؟ اختر الشهر وسوف تقوم بحفظ النسخة السابقة من المستهدفات، إذا اخترت "Current / Default" فهذا سيعدل الإعدادات العامة المعمول بها بشكل افتراضي.
+                </p>
+                
+                <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden mt-1">
+                  <div className="px-3 py-2 bg-slate-50 border-l border-slate-200 flex items-center justify-center">
+                    <History className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    value={targetEditingMonth === "default" ? "" : targetEditingMonth}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      if (!val) handleMonthSelectionChange("default");
+                      else handleMonthSelectionChange(val);
+                    }}
+                    placeholder="افتراضي لكافة الشهور السابقة (أو اكتب اسم الشهر مثال: Jan-25)"
+                    className="flex-1 px-3 py-2 text-xs font-semibold outline-none focus:bg-emerald-50/20 transition-all font-mono"
+                    dir="ltr"
+                  />
+                </div>
               </div>
 
               {/* LOB Target Selection Tab Swapper */}

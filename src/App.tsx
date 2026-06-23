@@ -20,8 +20,69 @@ import {
   subscribeToConfig, 
   subscribeToEmployees, 
   updateCloudConfig, 
-  updateAllEmployeesInCloud 
+  updateAllEmployeesInCloud,
+  updatePresence,
+  removePresence,
+  getOnlineCount
 } from "./lib/firebase";
+
+function OnlineUsersCounter() {
+  const [onlineCount, setOnlineCount] = useState<number>(1);
+
+  useEffect(() => {
+    // Initial setup
+    updatePresence();
+    getOnlineCount().then(setOnlineCount);
+
+    // Heartbeat: update presence every 30 seconds
+    const heartbeatInterval = setInterval(() => {
+      updatePresence();
+    }, 30000);
+
+    // Fetch count every 15 seconds
+    const countInterval = setInterval(() => {
+      getOnlineCount().then(setOnlineCount);
+    }, 15000);
+
+    // Cleanup on window unload
+    const handleBeforeUnload = () => {
+      removePresence();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearInterval(countInterval);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      // Try to remove immediately if unmounting (e.g. strict mode or navigating away in an SPA)
+      removePresence();
+    };
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full shadow-sm" dir="rtl">
+      <div className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+      </div>
+      <span className="flex items-center gap-1 text-[10px] text-slate-500 font-bold">
+        متواجد الآن: 
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={onlineCount}
+            initial={{ opacity: 0, scale: 0.5, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: -5 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="text-we-purple font-mono text-xs w-4 text-center inline-block"
+          >
+            {onlineCount}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </div>
+  );
+}
 
 export default function App() {
   // Authentication state
@@ -31,6 +92,7 @@ export default function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [targetsChat, setTargetsChat] = useState<KPITargets>(DEFAULT_KPI_TARGETS_CHAT);
   const [targetsUniversal, setTargetsUniversal] = useState<KPITargets>(DEFAULT_KPI_TARGETS_UNIVERSAL);
+  const [historicalTargets, setHistoricalTargets] = useState<HistoricalTargets>({});
   const [bannerNotice, setBannerNotice] = useState<string>("");
   const [dismissedNotice, setDismissedNotice] = useState<string>("");
   const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
@@ -77,6 +139,7 @@ export default function App() {
           if (!active) return;
           setTargetsChat(data.targetsChat);
           setTargetsUniversal(data.targetsUniversal);
+          setHistoricalTargets(data.historicalTargets || {});
           setMaintenanceMode(data.maintenanceMode);
           setBannerNotice(prev => {
             if (prev !== data.bannerNotice) {
@@ -146,10 +209,15 @@ export default function App() {
     updatedTargetsChat: KPITargets, 
     updatedTargetsUniversal: KPITargets,
     newNotice?: string,
-    newMaintenanceMode?: boolean
+    newMaintenanceMode?: boolean,
+    updatedHistoricalTargets?: HistoricalTargets
   ) => {
     setTargetsChat(updatedTargetsChat);
     setTargetsUniversal(updatedTargetsUniversal);
+    const resolvedHistorical = updatedHistoricalTargets || historicalTargets;
+    if (updatedHistoricalTargets) {
+      setHistoricalTargets(updatedHistoricalTargets);
+    }
     localStorage.setItem("kpi_targets_chat_v1", JSON.stringify(updatedTargetsChat));
     localStorage.setItem("kpi_targets_universal_v1", JSON.stringify(updatedTargetsUniversal));
     
@@ -166,7 +234,7 @@ export default function App() {
     }
     
     try {
-      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice, activeMaintenanceMode);
+      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice, activeMaintenanceMode, resolvedHistorical);
     } catch (e) {
       console.error("Failed to save updated limits to Cloud:", e);
     }
@@ -176,7 +244,7 @@ export default function App() {
   const handleUpdateBannerNotice = async (newNotice: string) => {
     setBannerNotice(newNotice);
     try {
-      await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenanceMode);
+      await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenanceMode, historicalTargets);
     } catch (e) {
       console.error("Failed to save active notice to Cloud:", e);
     }
@@ -186,7 +254,7 @@ export default function App() {
   const handleUpdateMaintenanceMode = async (newMaintenanceMode: boolean) => {
     setMaintenanceMode(newMaintenanceMode);
     try {
-      await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenanceMode);
+      await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenanceMode, historicalTargets);
     } catch (e) {
       console.error("Failed to save active maintenance mode to Cloud:", e);
     }
@@ -316,9 +384,12 @@ export default function App() {
                   <span className="text-xs font-mono font-bold text-we-purple">{time}</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold">
-                  <Wifi className="w-3.5 h-3.5 text-we-purple" />
-                  <span>سيرفر WE متصل ونشط</span>
+                <div className="flex flex-col gap-1 items-end">
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold">
+                    <Wifi className="w-3.5 h-3.5 text-we-purple" />
+                    <span>سيرفر WE متصل ونشط</span>
+                  </div>
+                  <OnlineUsersCounter />
                 </div>
               </div>
             </div>
@@ -421,6 +492,7 @@ export default function App() {
                 employees={employees} 
                 targetsChat={targetsChat} 
                 targetsUniversal={targetsUniversal} 
+                historicalTargets={historicalTargets}
               />
             )}
             {activeTab === "analytics" && (
@@ -428,6 +500,7 @@ export default function App() {
                 employees={employees} 
                 targetsChat={targetsChat} 
                 targetsUniversal={targetsUniversal} 
+                historicalTargets={historicalTargets}
               />
             )}
             {activeTab === "admin" && (
@@ -435,6 +508,7 @@ export default function App() {
                 employees={employees} 
                 targetsChat={targetsChat} 
                 targetsUniversal={targetsUniversal} 
+                historicalTargets={historicalTargets}
                 bannerNotice={bannerNotice}
                 maintenanceMode={maintenanceMode}
                 onUpdateBannerNotice={handleUpdateBannerNotice}

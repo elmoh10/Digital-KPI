@@ -29,6 +29,7 @@ export interface Employee {
   location: string;    // WFH / Site
   lob: string;         // Chat / ADSL
   performance: MonthlyPerformance[]; // Sorted chronologically
+  isArchived?: boolean; // For soft deletes and hiding from main dashboards
 }
 
 export interface KPITargets {
@@ -45,3 +46,5 @@ export interface KPITargets {
   unplanned: number;  // Target Count, e.g. 0
   finalScore: number; // Target %, e.g. 52
 }
+
+export type HistoricalTargets = Record<string, { chat: KPITargets, universal: KPITargets }>;

@@ -8,10 +8,17 @@ import {
   getDocs, 
   writeBatch,
   onSnapshot,
-  deleteDoc
+  deleteDoc,
+  query,
+  where,
+  getCountFromServer,
+  serverTimestamp
 } from "firebase/firestore";
 import { Employee, KPITargets } from "../types";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL } from "../data";
+
+// Session UUID for presence
+const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
 // Read Firebase configurations
 const firebaseConfig = {
@@ -67,7 +74,7 @@ export async function seedDatabaseIfEmpty() {
 /**
  * Sync configuration from Cloud Database.
  */
-export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; bannerNotice: string; maintenanceMode: boolean }) => void) {
+export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenanceMode: boolean }) => void) {
   const configRef = doc(db, "we_config", "general");
   return onSnapshot(configRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -75,6 +82,7 @@ export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; ta
       onUpdate({
         targetsChat: data.targetsChat || data.targets || DEFAULT_KPI_TARGETS_CHAT,
         targetsUniversal: data.targetsUniversal || data.targets || DEFAULT_KPI_TARGETS_UNIVERSAL,
+        historicalTargets: data.historicalTargets || {},
         bannerNotice: data.bannerNotice || "",
         maintenanceMode: data.maintenanceMode || false
       });
@@ -104,16 +112,20 @@ export function subscribeToEmployees(onUpdate: (employees: Employee[]) => void) 
 /**
  * Save targets and notice to cloud
  */
-export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string, maintenanceMode: boolean = false) {
+export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string, maintenanceMode: boolean = false, historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>) {
   const configRef = doc(db, "we_config", "general");
-  await setDoc(configRef, {
+  const payload: any = {
     targetsChat,
     targetsUniversal,
     targets: targetsChat, // maintain default for backward compatibility
     bannerNotice,
     maintenanceMode,
     updatedAt: new Date().toISOString()
-  });
+  };
+  if (historicalTargets) {
+    payload.historicalTargets = historicalTargets;
+  }
+  await setDoc(configRef, payload, { merge: true });
 }
 
 /**
@@ -182,5 +194,49 @@ export async function updateAllEmployeesInCloud(employeesList: Employee[]) {
   // Commit any remaining writes
   if (batchCount > 0) {
     await batch.commit();
+  }
+}
+
+/**
+ * Update current user's presence online
+ */
+export async function updatePresence() {
+  try {
+    const presenceRef = doc(db, "presence", sessionId);
+    await setDoc(presenceRef, {
+      lastSeen: Date.now()
+    }, { merge: true });
+  } catch (e) {
+    console.error("Failed to update presence", e);
+  }
+}
+
+/**
+ * Remove current user's presence online (run on window unload)
+ */
+export async function removePresence() {
+  try {
+    const presenceRef = doc(db, "presence", sessionId);
+    await deleteDoc(presenceRef);
+  } catch (e) {
+    console.error("Failed to remove presence", e);
+  }
+}
+
+/**
+ * Get current online user count based on heartbeat within last 120 seconds.
+ */
+export async function getOnlineCount() {
+  try {
+    // get count of docs where lastSeen >= Date.now() - 120000
+    const q = query(
+      collection(db, "presence"), 
+      where("lastSeen", ">=", Date.now() - 120000)
+    );
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count || 1; // At least 1 (self)
+  } catch (e) {
+    console.error("Failed to get online count", e);
+    return 1;
   }
 }
