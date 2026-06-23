@@ -717,7 +717,7 @@ export default function AdminPanel({
 
     try {
       const rows = empHeaderRowsCount > 0 ? pendingEmpRows.slice(empHeaderRowsCount) : pendingEmpRows;
-      const updatedEmployees = [...employees];
+      const updatedEmployees: Employee[] = [];
       let updatedCount = 0;
       let createdCount = 0;
 
@@ -768,10 +768,10 @@ export default function AdminPanel({
           }
         }
 
-        const existingIdx = updatedEmployees.findIndex(emp => emp.id === id);
-        if (existingIdx > -1) {
-          updatedEmployees[existingIdx] = {
-            ...updatedEmployees[existingIdx],
+        const existingEmp = employees.find(emp => emp.id === id);
+        if (existingEmp) {
+          updatedEmployees.push({
+            ...existingEmp,
             fullName,
             newTL,
             newSV,
@@ -779,7 +779,7 @@ export default function AdminPanel({
             nationalId,
             location,
             lob
-          };
+          });
           updatedCount++;
         } else {
           updatedEmployees.push({

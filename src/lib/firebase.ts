@@ -7,7 +7,8 @@ import {
   collection, 
   getDocs, 
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  deleteDoc
 } from "firebase/firestore";
 import { Employee, KPITargets } from "../types";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL } from "../data";
@@ -127,19 +128,57 @@ export async function saveEmployeeToCloud(employee: Employee) {
  */
 export async function deleteEmployeeFromCloud(id: string) {
   const docRef = doc(db, "employees", id);
-  // Optional if you implement a delete method
+  await deleteDoc(docRef);
 }
 
 /**
  * Composed full sync updates. Matches existing schema expectations.
  */
 export async function updateAllEmployeesInCloud(employeesList: Employee[]) {
-  const batch = writeBatch(db);
-  // Delete missing? Or simply overwrite everything in collection.
-  // For standard admin changes, we just batch set each employee.
-  employeesList.forEach((emp) => {
+  // Fetch existing employee IDs from Firestore to know which ones to delete
+  const employeesCol = collection(db, "employees");
+  const querySnapshot = await getDocs(employeesCol);
+  
+  const existingDocIds = new Set<string>();
+  querySnapshot.forEach(doc => existingDocIds.add(doc.id));
+
+  const newDocIds = new Set<string>();
+  employeesList.forEach(emp => newDocIds.add(emp.id));
+
+  // Determine which documents need to be deleted
+  const idsToDelete = Array.from(existingDocIds).filter(id => !newDocIds.has(id));
+
+  // Firebase allows a maximum of 500 writes per batch
+  const MAX_BATCH_SIZE = 500;
+  let batch = writeBatch(db);
+  let batchCount = 0;
+
+  const commitBatchIfNeeded = async () => {
+    if (batchCount > 0 && batchCount >= MAX_BATCH_SIZE) {
+      await batch.commit();
+      batch = writeBatch(db);
+      batchCount = 0;
+    }
+  };
+
+  // Perform sets
+  for (const emp of employeesList) {
     const docRef = doc(db, "employees", emp.id);
     batch.set(docRef, emp);
-  });
-  await batch.commit();
+    batchCount++;
+    await commitBatchIfNeeded();
+  }
+
+  // Perform deletes
+  for (const id of idsToDelete) {
+    const docRef = doc(db, "employees", id);
+    batch.delete(docRef);
+    batchCount++;
+    await commitBatchIfNeeded();
+  }
+
+  // Commit any remaining writes
+  if (batchCount > 0) {
+    await batch.commit();
+  }
 }
