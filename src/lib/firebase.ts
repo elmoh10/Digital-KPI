@@ -67,7 +67,7 @@ export async function seedDatabaseIfEmpty() {
 /**
  * Sync configuration from Cloud Database.
  */
-export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; bannerNotice: string }) => void) {
+export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; bannerNotice: string; maintenanceMode: boolean }) => void) {
   const configRef = doc(db, "we_config", "general");
   return onSnapshot(configRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -75,7 +75,8 @@ export function subscribeToConfig(onUpdate: (data: { targetsChat: KPITargets; ta
       onUpdate({
         targetsChat: data.targetsChat || data.targets || DEFAULT_KPI_TARGETS_CHAT,
         targetsUniversal: data.targetsUniversal || data.targets || DEFAULT_KPI_TARGETS_UNIVERSAL,
-        bannerNotice: data.bannerNotice || ""
+        bannerNotice: data.bannerNotice || "",
+        maintenanceMode: data.maintenanceMode || false
       });
     }
   }, (err) => {
@@ -103,13 +104,14 @@ export function subscribeToEmployees(onUpdate: (employees: Employee[]) => void) 
 /**
  * Save targets and notice to cloud
  */
-export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string) {
+export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversal: KPITargets, bannerNotice: string, maintenanceMode: boolean = false) {
   const configRef = doc(db, "we_config", "general");
   await setDoc(configRef, {
     targetsChat,
     targetsUniversal,
     targets: targetsChat, // maintain default for backward compatibility
     bannerNotice,
+    maintenanceMode,
     updatedAt: new Date().toISOString()
   });
 }

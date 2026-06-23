@@ -10,6 +10,7 @@ import EmployeeDashboard from "./components/EmployeeDashboard";
 import AdminPanel from "./components/AdminPanel";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import Auth from "./components/Auth";
+import MaintenancePage from "./components/MaintenancePage";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X
@@ -32,6 +33,7 @@ export default function App() {
   const [targetsUniversal, setTargetsUniversal] = useState<KPITargets>(DEFAULT_KPI_TARGETS_UNIVERSAL);
   const [bannerNotice, setBannerNotice] = useState<string>("");
   const [dismissedNotice, setDismissedNotice] = useState<string>("");
+  const [maintenanceMode, setMaintenanceMode] = useState<boolean>(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Active view tab state: "dashboard" | "analytics" | "admin"
@@ -75,6 +77,7 @@ export default function App() {
           if (!active) return;
           setTargetsChat(data.targetsChat);
           setTargetsUniversal(data.targetsUniversal);
+          setMaintenanceMode(data.maintenanceMode);
           setBannerNotice(prev => {
             if (prev !== data.bannerNotice) {
               setDismissedNotice("");
@@ -142,7 +145,8 @@ export default function App() {
   const handleUpdateTargets = async (
     updatedTargetsChat: KPITargets, 
     updatedTargetsUniversal: KPITargets,
-    newNotice?: string
+    newNotice?: string,
+    newMaintenanceMode?: boolean
   ) => {
     setTargetsChat(updatedTargetsChat);
     setTargetsUniversal(updatedTargetsUniversal);
@@ -154,9 +158,15 @@ export default function App() {
       setBannerNotice(newNotice);
       activeNotice = newNotice;
     }
+
+    let activeMaintenanceMode = maintenanceMode;
+    if (newMaintenanceMode !== undefined) {
+      setMaintenanceMode(newMaintenanceMode);
+      activeMaintenanceMode = newMaintenanceMode;
+    }
     
     try {
-      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice);
+      await updateCloudConfig(updatedTargetsChat, updatedTargetsUniversal, activeNotice, activeMaintenanceMode);
     } catch (e) {
       console.error("Failed to save updated limits to Cloud:", e);
     }
@@ -166,9 +176,19 @@ export default function App() {
   const handleUpdateBannerNotice = async (newNotice: string) => {
     setBannerNotice(newNotice);
     try {
-      await updateCloudConfig(targetsChat, targetsUniversal, newNotice);
+      await updateCloudConfig(targetsChat, targetsUniversal, newNotice, maintenanceMode);
     } catch (e) {
       console.error("Failed to save active notice to Cloud:", e);
+    }
+  };
+
+  // Update maintenance mode handler
+  const handleUpdateMaintenanceMode = async (newMaintenanceMode: boolean) => {
+    setMaintenanceMode(newMaintenanceMode);
+    try {
+      await updateCloudConfig(targetsChat, targetsUniversal, bannerNotice, newMaintenanceMode);
+    } catch (e) {
+      console.error("Failed to save active maintenance mode to Cloud:", e);
     }
   };
 
@@ -195,6 +215,10 @@ export default function App() {
       setUserRole(role);
       setActiveTab("dashboard");
     }} />;
+  }
+
+  if (userRole === "leader" && maintenanceMode) {
+    return <MaintenancePage />;
   }
 
   if (!isDataLoaded) {
@@ -386,10 +410,10 @@ export default function App() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.25, ease: "easeInOut" }}
+            initial={{ opacity: 0, scale: 0.98, filter: "blur(2px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.98, filter: "blur(2px)" }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             id="tab-view-container"
           >
             {activeTab === "dashboard" && (
@@ -412,7 +436,9 @@ export default function App() {
                 targetsChat={targetsChat} 
                 targetsUniversal={targetsUniversal} 
                 bannerNotice={bannerNotice}
+                maintenanceMode={maintenanceMode}
                 onUpdateBannerNotice={handleUpdateBannerNotice}
+                onUpdateMaintenanceMode={handleUpdateMaintenanceMode}
                 onUpdateEmployees={handleUpdateEmployees}
                 onUpdateTargets={handleUpdateTargets}
               />

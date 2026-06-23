@@ -19,9 +19,11 @@ interface AdminPanelProps {
   targetsChat: KPITargets;
   targetsUniversal: KPITargets;
   bannerNotice?: string;
+  maintenanceMode?: boolean;
   onUpdateBannerNotice?: (notice: string) => void;
+  onUpdateMaintenanceMode?: (status: boolean) => void;
   onUpdateEmployees: (updated: Employee[]) => void;
-  onUpdateTargets: (updatedChat: KPITargets, updatedUniversal: KPITargets, updatedNotice?: string) => void;
+  onUpdateTargets: (updatedChat: KPITargets, updatedUniversal: KPITargets, updatedNotice?: string, updatedMaintenanceMode?: boolean) => void;
 }
 
 export interface KpiMappingConfig {
@@ -94,7 +96,9 @@ export default function AdminPanel({
   targetsChat,
   targetsUniversal,
   bannerNotice = "",
+  maintenanceMode = false,
   onUpdateBannerNotice,
+  onUpdateMaintenanceMode,
   onUpdateEmployees,
   onUpdateTargets,
 }: AdminPanelProps) {
@@ -3685,6 +3689,39 @@ export default function AdminPanel({
                   placeholder="أدخل نص التنبيه الإداري العاجل هنا..."
                   className="w-full px-3 py-2 bg-white border border-slate-100 rounded-xl text-xs leading-relaxed text-right font-semibold resize-none h-20 outline-none focus:ring-1 focus:ring-we-pink focus:border-we-pink transition-all focus:bg-pink-50/30"
                 />
+              </div>
+
+              {/* Maintenance Mode Toggle */}
+              <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col gap-2 mb-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black text-orange-700 flex items-center gap-1.5 justify-start">
+                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                    تفعيل وضع الصيانة (تحت التطوير)
+                  </span>
+                  
+                  {/* Custom Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onUpdateMaintenanceMode) {
+                        onUpdateMaintenanceMode(!maintenanceMode);
+                      }
+                    }}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 ${
+                      maintenanceMode ? 'bg-orange-500' : 'bg-slate-300'
+                    }`}
+                    dir="ltr"
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        maintenanceMode ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+                <p className="text-[10px] text-orange-600/80 leading-relaxed font-semibold">
+                  تفعيل هذا الخيار سيقوم بحجب المنصة عن قادة الفرق (Leaders) وعرض صفحة "تحت التطوير" مؤقتاً حتى يتم إيقافه.
+                </p>
               </div>
 
               {/* LOB Target Selection Tab Swapper */}
