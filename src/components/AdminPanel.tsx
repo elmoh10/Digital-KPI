@@ -91,6 +91,8 @@ export interface LeadersMappingConfig {
   nameIdx: number;
   ctcIdx: number;
   ctbIdx: number;
+  npsIdx: number;
+  ahtIdx: number;
   finalScoreIdx: number;
 }
 
@@ -357,10 +359,12 @@ export default function AdminPanel({
   const [pendingLeadersRows, setPendingLeadersRows] = useState<string[][] | null>(null);
   const [pendingLeadersMonth, setPendingLeadersMonth] = useState<string>("");
   const [leadersMapping, setLeadersMapping] = useState<LeadersMappingConfig>({
-    idIdx: 0,
+    idIdx: -1,
     nameIdx: 1,
     ctcIdx: 23, 
     ctbIdx: 24, 
+    npsIdx: 12, // Default heuristic index
+    ahtIdx: 15, // Default heuristic index
     finalScoreIdx: 39,
   });
   const [detectedLeadersHeaders, setDetectedLeadersHeaders] = useState<string[]>([]);
@@ -418,7 +422,7 @@ export default function AdminPanel({
 
   const [resetDialogState, setResetDialogState] = useState<{
     isOpen: boolean;
-    mode: "all" | "employees_only" | "kpi_month" | "nps_month" | "weekly_month" | "weekly_all";
+    mode: "all" | "employees_only" | "kpi_month" | "nps_month" | "weekly_month" | "weekly_all" | "leaders_month" | "leaders_all";
     selectedMonth: string;
   }>({
     isOpen: false,
@@ -691,6 +695,34 @@ export default function AdminPanel({
           isOpen: true,
           title: "تمت العملية بنجاح",
           message: `تم مسح بيانات الأداء الأسبوعي لجميع الشهور ولجميع الموظفين.`,
+          type: "success"
+        });
+        break;
+      }
+      case "leaders_month": {
+        const updatedEmpsLeaders = employees.map(emp => ({
+          ...emp,
+          leaderPerformance: emp.leaderPerformance?.filter(p => p.month !== resetDialogState.selectedMonth) || []
+        }));
+        onUpdateEmployees(updatedEmpsLeaders);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات تقييم التيم ليدر لشهر ${resetDialogState.selectedMonth}.`,
+          type: "success"
+        });
+        break;
+      }
+      case "leaders_all": {
+        const updatedEmpsLeadersAll = employees.map(emp => ({
+          ...emp,
+          leaderPerformance: []
+        }));
+        onUpdateEmployees(updatedEmpsLeadersAll);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات تقييم التيم ليدر لجميع الشهور.`,
           type: "success"
         });
         break;
@@ -1632,10 +1664,12 @@ export default function AdminPanel({
       }
     }
 
-    let idIdx = 0;
+    let idIdx = -1;
     let nameIdx = 1;
     let ctcIdx = 23;
     let ctbIdx = 24;
+    let npsIdx = 12;
+    let ahtIdx = 15;
     let finalScoreIdx = 39;
 
     if (leadersHeaderRowsCountIdx > 0) {
@@ -1645,6 +1679,8 @@ export default function AdminPanel({
         else if (norm === "name" || norm === "اسم" || norm.includes("team leader")) nameIdx = i;
         else if (norm === "ctc %" || norm.includes("ctc")) ctcIdx = i;
         else if (norm === "ctb %" || norm.includes("ctb")) ctbIdx = i;
+        else if (norm === "nps" || norm.includes("nps")) npsIdx = i;
+        else if (norm === "aht" || norm.includes("aht")) ahtIdx = i;
         else if (norm === "final score" || norm.includes("final")) finalScoreIdx = i;
       });
     }
@@ -1652,10 +1688,12 @@ export default function AdminPanel({
     setPendingLeadersRows(rawRows);
     setPendingLeadersMonth(selectedMonth);
     setLeadersMapping({
-      idIdx: idIdx < numCols ? idIdx : 0,
+      idIdx: idIdx < numCols ? idIdx : -1,
       nameIdx: nameIdx < numCols ? nameIdx : 1,
       ctcIdx: ctcIdx < numCols ? ctcIdx : 23,
       ctbIdx: ctbIdx < numCols ? ctbIdx : 24,
+      npsIdx: npsIdx < numCols ? npsIdx : 12,
+      ahtIdx: ahtIdx < numCols ? ahtIdx : 15,
       finalScoreIdx: finalScoreIdx < numCols ? finalScoreIdx : 39,
     });
     setDetectedLeadersHeaders(combinedHeaders.map((hdr, idx) => {
@@ -1675,22 +1713,35 @@ export default function AdminPanel({
       let draftedCount = 0;
 
       rows.forEach(row => {
-        let id = row[leadersMapping.idIdx]?.trim() || "";
+        let id = leadersMapping.idIdx >= 0 ? row[leadersMapping.idIdx]?.trim() || "" : "";
         if (id.endsWith(".0")) {
           id = id.substring(0, id.length - 2);
         }
-        if (!id) return;
+        
+        const rawName = leadersMapping.nameIdx >= 0 ? row[leadersMapping.nameIdx]?.trim() || "" : "";
+        if (!id && !rawName) return;
 
-        const ctc = parsePercentageVal(row[leadersMapping.ctcIdx] || "", 0);
-        const ctb = parsePercentageVal(row[leadersMapping.ctbIdx] || "", 0);
-        const finalScore = parsePercentageVal(row[leadersMapping.finalScoreIdx] || "", 0);
-        const rawName = row[leadersMapping.nameIdx]?.trim() || `تيم ليدر كود ${id}`;
+        let empIndex = -1;
+        if (id) {
+          empIndex = updatedEmployees.findIndex(e => e.id === id);
+        } else if (rawName) {
+          empIndex = updatedEmployees.findIndex(e => e.fullName.toLowerCase().trim() === rawName.toLowerCase().trim() || e.id.toLowerCase().trim() === rawName.toLowerCase().trim());
+        }
 
-        let empIndex = updatedEmployees.findIndex(e => e.id === id);
+        const ctc = leadersMapping.ctcIdx >= 0 ? parsePercentageVal(row[leadersMapping.ctcIdx] || "", 0) : undefined;
+        const ctb = leadersMapping.ctbIdx >= 0 ? parsePercentageVal(row[leadersMapping.ctbIdx] || "", 0) : undefined;
+        const nps = leadersMapping.npsIdx >= 0 ? parsePercentageVal(row[leadersMapping.npsIdx] || "", 0) : undefined;
+        const aht = leadersMapping.ahtIdx >= 0 ? row[leadersMapping.ahtIdx]?.trim() || undefined : undefined;
+        const finalScore = leadersMapping.finalScoreIdx >= 0 ? parsePercentageVal(row[leadersMapping.finalScoreIdx] || "", 0) : undefined;
+        const finalName = rawName || `تيم ليدر كود ${id}`;
+
         if (empIndex === -1) {
+          if (!id) {
+            id = `TL-${rawName.replace(/\s+/g, '-').substring(0, 15)}-${Math.floor(Math.random() * 1000)}`;
+          }
           const newDraft: Employee = {
             id,
-            fullName: rawName,
+            fullName: finalName,
             newTL: "",
             newSV: "",
             mobileNumber: "",
@@ -1705,8 +1756,8 @@ export default function AdminPanel({
           draftedCount++;
         } else {
           // If the leader exists, we can optionally update their name if it was a generic one before
-          if (updatedEmployees[empIndex].fullName.startsWith("تيم ليدر كود") && rawName !== `تيم ليدر كود ${id}`) {
-             updatedEmployees[empIndex].fullName = rawName;
+          if (updatedEmployees[empIndex].fullName.startsWith("تيم ليدر كود") && finalName !== `تيم ليدر كود ${id}`) {
+             updatedEmployees[empIndex].fullName = finalName;
           }
         }
 
@@ -1717,17 +1768,28 @@ export default function AdminPanel({
         const leaderPerf = updatedEmployees[empIndex].leaderPerformance!;
         const perfIdx = leaderPerf.findIndex(p => p.month === pendingLeadersMonth);
         if (perfIdx > -1) {
-          leaderPerf[perfIdx].ctc = ctc;
-          leaderPerf[perfIdx].ctb = ctb;
-          leaderPerf[perfIdx].finalScore = finalScore;
+          if (ctc !== undefined) leaderPerf[perfIdx].ctc = ctc;
+          if (ctb !== undefined) leaderPerf[perfIdx].ctb = ctb;
+          if (nps !== undefined) leaderPerf[perfIdx].nps = nps;
+          // Note: we don't delete undefined values if they were mapped as -1, we just preserve the old value.
+          // If the column WAS mapped but the value was blank, it will be parsed as 0 (or undefined for AHT).
+          if (leadersMapping.npsIdx >= 0 && nps === undefined) delete leaderPerf[perfIdx].nps;
+          
+          if (aht !== undefined) leaderPerf[perfIdx].aht = aht;
+          if (leadersMapping.ahtIdx >= 0 && aht === undefined) delete leaderPerf[perfIdx].aht;
+          
+          if (finalScore !== undefined) leaderPerf[perfIdx].finalScore = finalScore;
           matchedCount++;
         } else {
-          leaderPerf.push({
+          const newPerf: any = {
             month: pendingLeadersMonth,
-            ctc,
-            ctb,
-            finalScore,
-          });
+            ctc: ctc ?? 0,
+            ctb: ctb ?? 0,
+            finalScore: finalScore ?? 0,
+          };
+          if (nps !== undefined) newPerf.nps = nps;
+          if (aht !== undefined) newPerf.aht = aht;
+          leaderPerf.push(newPerf);
           matchedCount++;
         }
       });
@@ -4167,6 +4229,7 @@ export default function AdminPanel({
                             onChange={(e) => setLeadersMapping({ ...leadersMapping, idIdx: parseInt(e.target.value) })}
                             className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
                           >
+                            <option value={-1}>استبعاد</option>
                             {detectedLeadersHeaders.map((hdr, idx) => (
                               <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
                             ))}
@@ -4203,6 +4266,32 @@ export default function AdminPanel({
                           <select
                             value={leadersMapping.ctbIdx}
                             onChange={(e) => setLeadersMapping({ ...leadersMapping, ctbIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">نسبة NPS</span>
+                          <select
+                            value={leadersMapping.npsIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, npsIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">متوسط زمن المكالمة (AHT)</span>
+                          <select
+                            value={leadersMapping.ahtIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, ahtIdx: parseInt(e.target.value) })}
                             className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
                           >
                             <option value={-1}>استبعاد</option>
@@ -5693,6 +5782,36 @@ export default function AdminPanel({
                   className="w-4 h-4 text-indigo-600"
                 />
                 <span className="text-xs font-bold text-slate-800">حذف الأداء الأسبوعي <b>لجميع</b> الشهور</span>
+              </label>
+
+              <div className={`p-3 rounded-xl border transition-colors ${resetDialogState.mode === "leaders_month" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                  <input 
+                    type="radio" 
+                    name="reset_mode" 
+                    checked={resetDialogState.mode === "leaders_month"}
+                    onChange={() => setResetDialogState(prev => ({ ...prev, mode: "leaders_month" }))}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-xs font-bold text-slate-800">حذف تقييم <b>التيم ليدر</b> لشهر محدد:</span>
+                </label>
+                {resetDialogState.mode === "leaders_month" && (
+                  <MonthYearSelector
+                    value={resetDialogState.selectedMonth}
+                    onChange={(val) => setResetDialogState(prev => ({ ...prev, selectedMonth: val }))}
+                  />
+                )}
+              </div>
+
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${resetDialogState.mode === "leaders_all" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <input 
+                  type="radio" 
+                  name="reset_mode" 
+                  checked={resetDialogState.mode === "leaders_all"}
+                  onChange={() => setResetDialogState(prev => ({ ...prev, mode: "leaders_all" }))}
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-xs font-bold text-slate-800">حذف تقييم التيم ليدر <b>لجميع</b> الشهور</span>
               </label>
             </div>
 

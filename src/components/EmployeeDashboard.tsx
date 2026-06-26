@@ -70,10 +70,12 @@ export function sortMonths(months: string[]): string[] {
 export default function EmployeeDashboard({ employees, targetsChat, targetsUniversal, historicalTargets }: EmployeeDashboardProps) {
   // Base active employees (excluding leaders-only)
   const activeAgentEmployees = useMemo(() => {
-    return employees.filter(emp => 
-      !emp.isArchived && 
-      !(emp.performance.length === 0 && emp.leaderPerformance && emp.leaderPerformance.length > 0)
-    );
+    return employees.filter(emp => {
+      if (emp.isArchived) return false;
+      if (emp.id.toString().startsWith("TL-") || emp.fullName.startsWith("تيم ليدر كود")) return false;
+      if (emp.leaderPerformance !== undefined && emp.performance.length === 0) return false;
+      return true;
+    });
   }, [employees]);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -148,9 +150,8 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
     const query = searchQuery.toLowerCase();
     return activeAgentEmployees.filter(
       emp => 
-        emp.fullName.toLowerCase().includes(query) || 
-        emp.id.toLowerCase().includes(query) ||
-        emp.newTL.toLowerCase().includes(query)
+        (emp.fullName && emp.fullName.toLowerCase().includes(query)) || 
+        (emp.id && emp.id.toString().toLowerCase().includes(query))
     );
   }, [activeAgentEmployees, searchQuery]);
 
@@ -301,7 +302,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                     <div className="flex items-center gap-2 mt-1 text-xs opacity-80 font-mono">
                       <span>ID: {emp.id}</span>
                       <span>•</span>
-                      <span>{emp.newTL.split(" ")[0]}</span>
+                      <span>{emp.newTL ? emp.newTL.split(" ")[0] : "بدون ليدر"}</span>
                     </div>
                   </div>
                   <ChevronRight className={`w-5 h-5 ml-1 transition-transform ${selectedId === emp.id ? "rotate-90 text-we-pink" : "text-slate-400"}`} />

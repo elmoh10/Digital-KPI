@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Employee } from "../types";
-import { Search, Calendar as CalendarIcon, Filter, Users, UserCircle, ChevronRight, AlertTriangle, User, Phone, FileText, MapPin, Printer, ExternalLink, X } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Filter, Users, UserCircle, ChevronRight, AlertTriangle, User, Phone, FileText, MapPin, Printer, ExternalLink, X, Star, Clock } from "lucide-react";
 import { motion } from "motion/react";
 import { MonthYearSelector } from "./MonthYearSelector";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
@@ -246,7 +246,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3 }}
-                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
                     dir="ltr"
                   >
                     <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
@@ -258,8 +258,8 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                             {activeLeaderRecord.ctc}%
                           </h4>
                         </div>
-                        <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center">
-                          <FileText className="w-6 h-6 text-blue-600" />
+                        <div className="w-10 h-10 bg-blue-100 rounded-2xl flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-blue-600" />
                         </div>
                       </div>
                     </div>
@@ -273,13 +273,43 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                             {activeLeaderRecord.ctb}%
                           </h4>
                         </div>
-                        <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center">
-                          <AlertTriangle className="w-6 h-6 text-purple-600" />
+                        <div className="w-10 h-10 bg-purple-100 rounded-2xl flex items-center justify-center">
+                          <AlertTriangle className="w-5 h-5 text-purple-600" />
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-6 shadow-md relative overflow-hidden group sm:col-span-2 md:col-span-1">
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                      <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-50 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 mb-1">NPS %</p>
+                          <h4 className="text-3xl font-black text-slate-800">
+                            {activeLeaderRecord.nps !== undefined ? `${activeLeaderRecord.nps}%` : '-'}
+                          </h4>
+                        </div>
+                        <div className="w-10 h-10 bg-emerald-100 rounded-2xl flex items-center justify-center">
+                          <Star className="w-5 h-5 text-emerald-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm relative overflow-hidden group">
+                      <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-50 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
+                      <div className="flex justify-between items-start relative z-10">
+                        <div>
+                          <p className="text-xs font-bold text-slate-500 mb-1">AHT</p>
+                          <h4 className="text-2xl font-black text-slate-800 leading-tight">
+                            {activeLeaderRecord.aht !== undefined ? activeLeaderRecord.aht : '-'}
+                          </h4>
+                        </div>
+                        <div className="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-amber-600" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-3xl p-6 shadow-md relative overflow-hidden group sm:col-span-2 lg:col-span-1">
                       <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full opacity-50 group-hover:scale-110 transition-transform"></div>
                       <div className="flex justify-between items-start relative z-10">
                         <div>

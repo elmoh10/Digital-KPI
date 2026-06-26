@@ -61,7 +61,7 @@ export async function seedDatabaseIfEmpty() {
       const batch = writeBatch(db);
       INITIAL_EMPLOYEES.forEach((emp) => {
         const docRef = doc(db, "employees", emp.id);
-        batch.set(docRef, emp);
+        batch.set(docRef, cleanUndefined(emp));
       });
       await batch.commit();
       console.log("Database seeded successfully with default WE employees.");
@@ -190,12 +190,28 @@ export async function updateLobOptionsConfig(lobOptions: string[]) {
 }
 
 /**
+ * Helper to remove undefined properties from an object recursively
+ */
+function cleanUndefined(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(cleanUndefined);
+  } else if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, cleanUndefined(v)])
+    );
+  }
+  return obj;
+}
+
+/**
  * Save updated list of employees to cloud.
  * To minimize network operations, we upsert matching items or commit full adjustments safely.
  */
 export async function saveEmployeeToCloud(employee: Employee) {
   const docRef = doc(db, "employees", employee.id);
-  await setDoc(docRef, employee);
+  await setDoc(docRef, cleanUndefined(employee));
 }
 
 /**
@@ -239,7 +255,7 @@ export async function updateAllEmployeesInCloud(employeesList: Employee[]) {
   // Perform sets
   for (const emp of employeesList) {
     const docRef = doc(db, "employees", emp.id);
-    batch.set(docRef, emp);
+    batch.set(docRef, cleanUndefined(emp));
     batchCount++;
     await commitBatchIfNeeded();
   }

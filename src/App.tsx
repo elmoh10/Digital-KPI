@@ -27,8 +27,52 @@ import {
   updatePresence,
   removePresence,
   getOnlineCount,
-  updateLobOptionsConfig
+  updateLobOptionsConfig,
+  db
 } from "./lib/firebase";
+import { onSnapshot, doc } from "firebase/firestore";
+
+function FirebaseConnectionStatus() {
+  const [isConnected, setIsConnected] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsConnected(true);
+    const handleOffline = () => setIsConnected(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const unsub = onSnapshot(
+      doc(db, "config", "main"),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        setIsConnected(!snapshot.metadata.fromCache);
+      },
+      (error) => {
+        setIsConnected(false);
+      }
+    );
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsub();
+    };
+  }, []);
+
+  return (
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+      isConnected 
+        ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+        : "bg-rose-50 text-rose-700 border-rose-100"
+    }`} dir="rtl">
+      <div className="relative flex h-2 w-2">
+        {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+        <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? "bg-emerald-500" : "bg-rose-500"}`}></span>
+      </div>
+      <span>سيرفر Firebase {isConnected ? "متصل" : "غير متصل"}</span>
+    </div>
+  );
+}
 
 function OnlineUsersCounter() {
   const [onlineCount, setOnlineCount] = useState<number>(1);
@@ -64,12 +108,12 @@ function OnlineUsersCounter() {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full shadow-sm" dir="rtl">
+    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-xs font-semibold" dir="rtl">
       <div className="relative flex h-2 w-2">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
       </div>
-      <span className="flex items-center gap-1 text-[10px] text-slate-500 font-bold">
+      <span className="flex items-center gap-1 text-slate-600">
         متواجد الآن: 
         <AnimatePresence mode="popLayout">
           <motion.span
@@ -78,7 +122,7 @@ function OnlineUsersCounter() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.5, y: -5 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="text-we-purple font-mono text-xs w-4 text-center inline-block"
+            className="text-we-purple font-mono w-4 text-center inline-block"
           >
             {onlineCount}
           </motion.span>
@@ -441,18 +485,20 @@ export default function App() {
                 )}
               </button>
 
-              <div className="hidden md:flex items-center gap-4 flex-row">
-                <div className="bg-slate-50 border border-slate-100/50 px-4 py-2 rounded-2xl flex items-center gap-2" dir="rtl">
-                  <Clock className="w-4 h-4 text-we-pink" />
-                  <span className="text-xs text-slate-400 font-medium">توقيت القاهرة:</span>
-                  <span className="text-xs font-mono font-bold text-we-purple">{time}</span>
-                </div>
-
-                <div className="flex flex-col gap-1 items-end">
-                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold">
-                    <Wifi className="w-3.5 h-3.5 text-we-purple" />
-                    <span>سيرفر WE متصل ونشط</span>
+              <div className="hidden md:flex flex-col gap-1.5 items-end">
+                <div className="flex flex-row items-center justify-end gap-1.5">
+                  <div className="bg-slate-50 border border-slate-100/50 px-3 py-1.5 rounded-full flex items-center gap-1.5" dir="rtl">
+                    <Clock className="w-3.5 h-3.5 text-we-pink" />
+                    <span className="text-xs text-slate-400 font-medium">توقيت القاهرة:</span>
+                    <span className="text-xs font-mono font-bold text-we-purple">{time}</span>
                   </div>
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold" dir="rtl">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>سيرفر WE متصل</span>
+                  </div>
+                </div>
+                <div className="flex flex-row items-center justify-end gap-1.5">
+                  <FirebaseConnectionStatus />
                   <OnlineUsersCounter />
                 </div>
               </div>

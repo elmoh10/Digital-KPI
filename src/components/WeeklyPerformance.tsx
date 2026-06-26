@@ -13,10 +13,12 @@ interface WeeklyPerformanceProps {
 
 export default function WeeklyPerformance({ employees: rawEmployees, targetsChat, targetsUniversal }: WeeklyPerformanceProps) {
   // Only include non-archived agent employees
-  const employees = useMemo(() => rawEmployees.filter(emp => 
-    !emp.isArchived && 
-    !(emp.performance.length === 0 && emp.leaderPerformance && emp.leaderPerformance.length > 0)
-  ), [rawEmployees]);
+  const employees = useMemo(() => rawEmployees.filter(emp => {
+    if (emp.isArchived) return false;
+    if (emp.id.toString().startsWith("TL-") || emp.fullName.startsWith("تيم ليدر كود")) return false;
+    if (emp.leaderPerformance !== undefined && emp.performance.length === 0) return false;
+    return true;
+  }), [rawEmployees]);
 
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
