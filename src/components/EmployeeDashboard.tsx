@@ -378,9 +378,9 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   currentEmployee.location === "WFH" 
                     ? "bg-sky-50 text-sky-600 border border-sky-100" 
-                    : "bg-purple-50 text-purple-600 border border-purple-100"
+                    : (currentEmployee.location === "NC" ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100")
                 }`}>
-                  {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : "من المقر (Premise)"}
+                  {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : (currentEmployee.location === "NC" ? "مقر مدينة نصر (NC)" : "مقر الدقي (Dokki)")}
                 </span>
               </div>
             </div>

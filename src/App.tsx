@@ -13,9 +13,10 @@ import WeeklyPerformance from "./components/WeeklyPerformance";
 import LeaderPerformance from "./components/LeaderPerformance";
 import Auth from "./components/Auth";
 import MaintenancePage from "./components/MaintenancePage";
+import NotificationsPopover from "./components/NotificationsPopover";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar, Users
+  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar, Users, Bell
 } from "lucide-react";
 import { 
   seedDatabaseIfEmpty, 
@@ -456,6 +457,9 @@ export default function App() {
               >
                 <LogOut className="w-4.5 h-4.5 sm:w-5 h-5" />
               </button>
+
+              {/* Notifications */}
+              {currentUser && <NotificationsPopover currentUser={currentUser} />}
               
               {/* Theme Toggle Button */}
               <button

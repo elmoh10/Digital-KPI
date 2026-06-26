@@ -552,7 +552,7 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
 
                 <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
                   <span className="text-slate-100 font-semibold bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-lg border border-indigo-500/20 text-xs">
-                    {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : (currentEmployee.location === "Site" ? "من المقر (Premise)" : (currentEmployee.location || "-"))}
+                    {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : (currentEmployee.location === "NC" ? "مقر مدينة نصر (NC)" : (currentEmployee.location === "Dokki" ? "مقر الدقي (Dokki)" : (currentEmployee.location || "-")))}
                   </span>
                   <div className="flex items-center gap-2 text-slate-400">
                     <span className="text-[10px]">موقع العمل</span>

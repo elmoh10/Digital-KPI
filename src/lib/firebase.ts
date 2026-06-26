@@ -12,7 +12,9 @@ import {
   query,
   where,
   getCountFromServer,
-  serverTimestamp
+  serverTimestamp,
+  arrayUnion,
+  updateDoc
 } from "firebase/firestore";
 import { Employee, KPITargets, SystemUser } from "../types";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL, DEFAULT_USERS } from "../data";
@@ -315,5 +317,58 @@ export async function getOnlineCount() {
   } catch (e) {
     console.warn("Failed to get online count", e);
     return 1;
+  }
+}
+
+/**
+ * Send a new notification
+ */
+export async function sendNotification(notif: Omit<import("../types").AppNotification, "id" | "timestamp" | "readBy">) {
+  try {
+    const notifRef = doc(collection(db, "notifications"));
+    const newNotif: import("../types").AppNotification = {
+      ...notif,
+      id: notifRef.id,
+      timestamp: Date.now(),
+      readBy: [],
+    };
+    await setDoc(notifRef, newNotif);
+  } catch (error) {
+    console.warn("Error sending notification", error);
+  }
+}
+
+/**
+ * Subscribe to notifications
+ */
+export function subscribeToNotifications(
+  onUpdate: (notifications: import("../types").AppNotification[]) => void,
+  onError?: (err: Error) => void
+) {
+  const notifColRef = collection(db, "notifications");
+  return onSnapshot(notifColRef, (colSnap) => {
+    const list: import("../types").AppNotification[] = [];
+    colSnap.forEach((docSnap) => {
+      list.push(docSnap.data() as import("../types").AppNotification);
+    });
+    // Sort by descending timestamp
+    list.sort((a, b) => b.timestamp - a.timestamp);
+    onUpdate(list);
+  }, (err) => {
+    if (onError) onError(err);
+  });
+}
+
+/**
+ * Mark notification as read by user
+ */
+export async function markNotificationAsRead(notifId: string, userId: string) {
+  try {
+    const notifRef = doc(db, "notifications", notifId);
+    await updateDoc(notifRef, {
+      readBy: arrayUnion(userId)
+    });
+  } catch (error) {
+    console.warn("Error marking notification as read", error);
   }
 }

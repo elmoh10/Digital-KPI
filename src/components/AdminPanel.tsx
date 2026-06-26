@@ -9,7 +9,7 @@ import { Employee, KPITargets, MonthlyPerformance, SystemUser } from "../types";
 import { 
   Lock, KeyRound, Check, Edit3, Plus, Trash2, Database, Upload, Download, 
   HelpCircle, Settings, UserPlus, RefreshCw, LogOut, CheckCircle2,
-  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History, X
+  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History, X, Bell
 } from "lucide-react";
 import { motion } from "motion/react";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS } from "../data";
@@ -185,10 +185,17 @@ export default function AdminPanel({
   }, [localNotice]);
 
   // Control tabs in Admin Dashboard
-  const [adminTab, setAdminTab] = useState<"upload" | "weekly" | "employees" | "targets" | "data" | "users">("upload");
+  const [adminTab, setAdminTab] = useState<"upload" | "weekly" | "employees" | "targets" | "data" | "users" | "notifications">("upload");
 
   // Control which LOB targets we are currently editing
   const [editingLOB, setEditingLOB] = useState<"chat" | "universal">("chat");
+
+  const [notifForm, setNotifForm] = useState<{title: string, message: string, type: "info" | "warning" | "success" | "alert", targetRole: "all" | "agent" | "leader" | "admin"}>({
+    title: "",
+    message: "",
+    type: "info",
+    targetRole: "all"
+  });
 
   const [editingUser, setEditingUser] = useState<Partial<SystemUser> & { id?: string }>({});
 
@@ -1016,8 +1023,10 @@ export default function AdminPanel({
         let location = "WFH";
         if (empMapping.locIdx !== -1 && row[empMapping.locIdx]) {
           const rawLoc = row[empMapping.locIdx].toLowerCase();
-          if (rawLoc.includes("premise") || rawLoc.includes("site") || rawLoc.includes("مقر") || rawLoc.includes("مكتب")) {
-            location = "Premise";
+          if (rawLoc.includes("nc") || rawLoc.includes("مدينة نصر")) {
+            location = "NC";
+          } else if (rawLoc.includes("dokki") || rawLoc.includes("دقي") || rawLoc.includes("الدقي")) {
+            location = "Dokki";
           }
         }
 
@@ -1602,6 +1611,26 @@ export default function AdminPanel({
 
       await onUpdateEmployees(updatedEmployees);
 
+      try {
+        const { sendNotification } = await import("../lib/firebase");
+        await sendNotification({
+          title: "رفع تقييم جديد",
+          message: `تم رفع تقييمات الأداء لشهر ${pendingKpiMonth} بنجاح. يمكنك الآن الإطلاع على نتائج التقييم الفردي.`,
+          type: "info",
+          targetRole: "agent"
+        });
+        
+        // Notify leaders
+        await sendNotification({
+          title: "تحديث الأداء والتقييمات",
+          message: `تم رصد التقييمات لشهر ${pendingKpiMonth}. يرجى متابعة الموظفين الذين انخفض أداؤهم هذا الشهر ومراجعة تقاريرهم.`,
+          type: "warning",
+          targetRole: "leader"
+        });
+      } catch (err) {
+        console.warn("Failed to send notification", err);
+      }
+
       setPasteSuccess(`تم تحديث شيت الـ KPI بنجاح! تم رصد مؤشرات الأداء لـ ${matchedCount} موظفاً لشهر ${pendingKpiMonth}. (تم استحداث ${draftedCount} ملفات كادر مؤقتة للأكواد غير المسجلة مسبقاً)`);
       setPasteKpiText("");
       setPasteError("");
@@ -2161,7 +2190,7 @@ export default function AdminPanel({
             newSV: "غير محدد",
             mobileNumber: "",
             nationalId: "",
-            location: "Site",
+            location: "NC",
             lob: "Chat",
             performance: [],
             weeklyPerformance: []
@@ -2826,6 +2855,27 @@ export default function AdminPanel({
       }
 
       await onUpdateEmployees(updatedEmployees);
+      
+      try {
+        const { sendNotification } = await import("../lib/firebase");
+        await sendNotification({
+          title: "رفع تقييم جديد",
+          message: `تم رفع تقييمات الأداء لشهر ${pasteKpiMonth} بنجاح. يمكنك الآن الإطلاع على نتائج التقييم الفردي.`,
+          type: "info",
+          targetRole: "agent"
+        });
+
+        // Notify leaders
+        await sendNotification({
+          title: "تحديث الأداء والتقييمات",
+          message: `تم رصد التقييمات لشهر ${pasteKpiMonth}. يرجى متابعة الموظفين الذين انخفض أداؤهم هذا الشهر ومراجعة تقاريرهم.`,
+          type: "warning",
+          targetRole: "leader"
+        });
+      } catch (err) {
+        console.warn("Failed to send notification", err);
+      }
+
       setPasteSuccess(`بنجاح! تم تحديث مؤشرات الأداء لـ ${matchedCount} موظفاً لشهر ${pasteKpiMonth}. (تم إنشاء ${draftedCount} ملفات كادر مؤقتة للأكواد غير المسجلة مسبقاً) ${mappingReport}`);
       setPasteKpiText("");
       setPasteError("");
@@ -3027,6 +3077,17 @@ export default function AdminPanel({
             إدارة المستخدمين
           </button>
         )}
+        {hasAdminPermission("admin_users") && (
+          <button
+            onClick={() => setAdminTab("notifications")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
+              adminTab === "notifications" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            إرسال إشعارات
+          </button>
+        )}
         {hasAdminPermission("admin_data") && (
           <button
             onClick={() => setAdminTab("data")}
@@ -3071,6 +3132,94 @@ export default function AdminPanel({
 
       {/* Subtab Contents */}
       <div id="admin-subtab-view">
+
+        {/* TAB NOTIFICATIONS */}
+        {adminTab === "notifications" && hasAdminPermission("admin_users") && (
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8" dir="rtl">
+            <div className="md:col-span-8 md:col-start-3 bg-white rounded-3xl border border-slate-100 p-6 space-y-4 text-right">
+              <h3 className="text-md font-display font-semibold text-slate-800 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-indigo-500" />
+                إرسال إشعار للنظام
+              </h3>
+              <p className="text-sm text-slate-500 mb-6">يمكنك إرسال إشعار إلى جميع المستخدمين، أو استهداف مجموعة معينة (التيم ليدر فقط، جميع الموظفين، إلخ).</p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">عنوان الإشعار</label>
+                  <input
+                    type="text"
+                    value={notifForm.title}
+                    onChange={(e) => setNotifForm({ ...notifForm, title: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+                    placeholder="مثال: رسالة إدارية هامة"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">نص الإشعار</label>
+                  <textarea
+                    value={notifForm.message}
+                    onChange={(e) => setNotifForm({ ...notifForm, message: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none min-h-[100px]"
+                    placeholder="محتوى الإشعار..."
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">نوع الإشعار</label>
+                    <select
+                      value={notifForm.type}
+                      onChange={(e) => setNotifForm({ ...notifForm, type: e.target.value as any })}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm outline-none"
+                    >
+                      <option value="info">معلومة عامة (Info)</option>
+                      <option value="success">إشعار نجاح (Success)</option>
+                      <option value="warning">تنبيه (Warning)</option>
+                      <option value="alert">تنبيه هام جداً (Alert)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">المستهدفون</label>
+                    <select
+                      value={notifForm.targetRole}
+                      onChange={(e) => setNotifForm({ ...notifForm, targetRole: e.target.value as any })}
+                      className="w-full rounded-xl border border-slate-200 px-4 py-2 text-sm outline-none"
+                    >
+                      <option value="all">الجميع</option>
+                      <option value="agent">الموظفين (Agents)</option>
+                      <option value="leader">التيم ليدرز</option>
+                      <option value="admin">الإدارة فقط</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t border-slate-100 flex justify-end">
+                  <button
+                    onClick={async () => {
+                      if (!notifForm.title.trim() || !notifForm.message.trim()) {
+                        setDialogAlert({ isOpen: true, title: "خطأ", message: "يرجى كتابة عنوان الإشعار ومحتواه.", type: "error" });
+                        return;
+                      }
+                      try {
+                        const { sendNotification } = await import("../lib/firebase");
+                        await sendNotification(notifForm);
+                        setNotifForm({ title: "", message: "", type: "info", targetRole: "all" });
+                        setDialogAlert({ isOpen: true, title: "نجاح", message: "تم إرسال الإشعار بنجاح.", type: "success" });
+                      } catch (err) {
+                        setDialogAlert({ isOpen: true, title: "خطأ", message: "فشل إرسال الإشعار", type: "error" });
+                      }
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                    إرسال الإشعار
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB USERS: USER MANAGEMENT */}
         {adminTab === "users" && hasAdminPermission("admin_users") && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8" dir="rtl">
@@ -3480,7 +3629,7 @@ export default function AdminPanel({
 
                         {/* Location */}
                         <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-slate-600 block">مقر التعيين (WFH/Premise)</span>
+                          <span className="text-[10px] font-bold text-slate-600 block">مقر التعيين (WFH/NC/Dokki)</span>
                           <select
                             value={empMapping.locIdx}
                             onChange={(e) => setEmpMapping({ ...empMapping, locIdx: parseInt(e.target.value) })}
@@ -4830,7 +4979,8 @@ export default function AdminPanel({
                             className="w-full bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-xs"
                           >
                             <option value="WFH">WFH (المنزل)</option>
-                            <option value="Premise">Premise (المقر)</option>
+                            <option value="NC">NC (مدينة نصر)</option>
+                            <option value="Dokki">Dokki (الدقي)</option>
                           </select>
                         </div>
                       </div>

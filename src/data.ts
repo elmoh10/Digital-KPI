@@ -92,7 +92,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     newSV: "Ehab Heness",
     mobileNumber: "1098765432",
     nationalId: "29210123456789",
-    location: "Premise",
+    location: "NC",
     lob: "Chat / ADSL",
     performance: [
       { month: "Jan-25", aht: "07:12", csi: 45, nps: 55, fcr: 70, ttb: 88, ctc: 12, ctb: 8, absent: 0, sick: 0, emergency: 0, unplanned: 0, finalScore: 68 },
@@ -128,7 +128,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [
     newSV: "Noha Gamil",
     mobileNumber: "1055566778",
     nationalId: "29012123456789",
-    location: "Premise",
+    location: "Dokki",
     lob: "Chat / ADSL",
     performance: [
       { month: "Jan-25", aht: "08:15", csi: 28, nps: 20, fcr: 58, ttb: 75, ctc: 15, ctb: 10, absent: 1, sick: 1, emergency: 0, unplanned: 2, finalScore: 40 },

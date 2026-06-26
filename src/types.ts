@@ -89,3 +89,14 @@ export interface SystemUser {
   fullName: string;
   permissions?: string[];
 }
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: "info" | "warning" | "success" | "alert";
+  timestamp: number;
+  readBy: string[]; // List of user IDs who have read it
+  targetRole: "all" | "agent" | "leader" | "admin"; 
+  targetUserId?: string; // If targeting a specific user (by ID)
+}
