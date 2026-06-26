@@ -349,7 +349,7 @@ export default function App() {
     }} />;
   }
 
-  if (userRole === "leader" && maintenancePages.includes(activeTab)) {
+  if (userRole !== "admin" && maintenancePages.includes(activeTab)) {
     return <MaintenancePage onBack={() => setActiveTab("dashboard")} />;
   }
 
