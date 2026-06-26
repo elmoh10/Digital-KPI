@@ -1582,6 +1582,11 @@ export default function AdminPanel({
           updatedEmployees.push(newDraft);
           empIndex = updatedEmployees.length - 1;
           draftedCount++;
+        } else {
+          updatedEmployees[empIndex] = {
+            ...updatedEmployees[empIndex],
+            performance: [...updatedEmployees[empIndex].performance]
+          };
         }
 
         const perfEntry: MonthlyPerformance = {
@@ -1694,12 +1699,12 @@ export default function AdminPanel({
     }
 
     let idIdx = -1;
-    let nameIdx = 1;
-    let ctcIdx = 23;
-    let ctbIdx = 24;
-    let npsIdx = 12;
-    let ahtIdx = 15;
-    let finalScoreIdx = 39;
+    let nameIdx = -1;
+    let ctcIdx = -1;
+    let ctbIdx = -1;
+    let npsIdx = -1;
+    let ahtIdx = -1;
+    let finalScoreIdx = -1;
 
     if (leadersHeaderRowsCountIdx > 0) {
       combinedHeaders.forEach((h, i) => {
@@ -1714,16 +1719,19 @@ export default function AdminPanel({
       });
     }
 
+    if (idIdx === -1 && numCols > 0) idIdx = 0;
+    if (nameIdx === -1 && numCols > 1) nameIdx = 1;
+
     setPendingLeadersRows(rawRows);
     setPendingLeadersMonth(selectedMonth);
     setLeadersMapping({
-      idIdx: idIdx < numCols ? idIdx : -1,
-      nameIdx: nameIdx < numCols ? nameIdx : 1,
-      ctcIdx: ctcIdx < numCols ? ctcIdx : 23,
-      ctbIdx: ctbIdx < numCols ? ctbIdx : 24,
-      npsIdx: npsIdx < numCols ? npsIdx : 12,
-      ahtIdx: ahtIdx < numCols ? ahtIdx : 15,
-      finalScoreIdx: finalScoreIdx < numCols ? finalScoreIdx : 39,
+      idIdx: idIdx >= 0 && idIdx < numCols ? idIdx : -1,
+      nameIdx: nameIdx >= 0 && nameIdx < numCols ? nameIdx : -1,
+      ctcIdx: ctcIdx >= 0 && ctcIdx < numCols ? ctcIdx : -1,
+      ctbIdx: ctbIdx >= 0 && ctbIdx < numCols ? ctbIdx : -1,
+      npsIdx: npsIdx >= 0 && npsIdx < numCols ? npsIdx : -1,
+      ahtIdx: ahtIdx >= 0 && ahtIdx < numCols ? ahtIdx : -1,
+      finalScoreIdx: finalScoreIdx >= 0 && finalScoreIdx < numCols ? finalScoreIdx : -1,
     });
     setDetectedLeadersHeaders(combinedHeaders.map((hdr, idx) => {
       const colLabel = getExcelColumnLabel(idx);
@@ -1757,11 +1765,52 @@ export default function AdminPanel({
           empIndex = updatedEmployees.findIndex(e => e.fullName.toLowerCase().trim() === rawName.toLowerCase().trim() || e.id.toLowerCase().trim() === rawName.toLowerCase().trim());
         }
 
-        const ctc = leadersMapping.ctcIdx >= 0 ? parsePercentageVal(row[leadersMapping.ctcIdx] || "", 0) : undefined;
-        const ctb = leadersMapping.ctbIdx >= 0 ? parsePercentageVal(row[leadersMapping.ctbIdx] || "", 0) : undefined;
-        const nps = leadersMapping.npsIdx >= 0 ? parsePercentageVal(row[leadersMapping.npsIdx] || "", 0) : undefined;
-        const aht = leadersMapping.ahtIdx >= 0 ? row[leadersMapping.ahtIdx]?.trim() || undefined : undefined;
-        const finalScore = leadersMapping.finalScoreIdx >= 0 ? parsePercentageVal(row[leadersMapping.finalScoreIdx] || "", 0) : undefined;
+        const ctcVal = leadersMapping.ctcIdx >= 0 ? row[leadersMapping.ctcIdx]?.trim() : undefined;
+        const ctc = (ctcVal !== undefined && ctcVal !== "") ? parsePercentageVal(ctcVal, 0) : undefined;
+
+        const ctbVal = leadersMapping.ctbIdx >= 0 ? row[leadersMapping.ctbIdx]?.trim() : undefined;
+        const ctb = (ctbVal !== undefined && ctbVal !== "") ? parsePercentageVal(ctbVal, 0) : undefined;
+
+        const npsVal = leadersMapping.npsIdx >= 0 ? row[leadersMapping.npsIdx]?.trim() : undefined;
+        const nps = (npsVal !== undefined && npsVal !== "") ? parsePercentageVal(npsVal, 0) : undefined;
+
+        const ahtVal = leadersMapping.ahtIdx >= 0 ? row[leadersMapping.ahtIdx]?.trim() : undefined;
+        let aht: string | undefined = undefined;
+        if (ahtVal !== undefined && ahtVal !== "") {
+          const num = Number(ahtVal);
+          if (!isNaN(num) && num > 0) {
+            let totalSecs = 0;
+            if (num < 1) {
+              totalSecs = Math.round(num * 86400);
+            } else {
+              totalSecs = Math.round(num);
+            }
+            const mins = Math.floor(totalSecs / 60);
+            const secs = totalSecs % 60;
+            aht = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+          } else if (ahtVal.includes(":")) {
+            const parts = ahtVal.split(":");
+            if (parts.length === 3) {
+              const hr = parseInt(parts[0], 10) || 0;
+              const min = parseInt(parts[1], 10) || 0;
+              const sec = parseInt(parts[2], 10) || 0;
+              const totalMins = hr * 60 + min;
+              aht = `${String(totalMins).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            } else if (parts.length === 2) {
+              const min = String(parseInt(parts[0], 10) || 0).padStart(2, '0');
+              const sec = String(parseInt(parts[1], 10) || 0).padStart(2, '0');
+              aht = `${min}:${sec}`;
+            } else {
+              aht = ahtVal;
+            }
+          } else {
+            aht = ahtVal;
+          }
+        }
+
+        const finalScoreVal = leadersMapping.finalScoreIdx >= 0 ? row[leadersMapping.finalScoreIdx]?.trim() : undefined;
+        const finalScore = (finalScoreVal !== undefined && finalScoreVal !== "") ? parsePercentageVal(finalScoreVal, 0) : undefined;
+
         const finalName = rawName || `تيم ليدر كود ${id}`;
 
         if (empIndex === -1) {
@@ -1784,7 +1833,8 @@ export default function AdminPanel({
           empIndex = updatedEmployees.length - 1;
           draftedCount++;
         } else {
-          // If the leader exists, we can optionally update their name if it was a generic one before
+          // Clone the employee object to avoid mutating the state directly
+          updatedEmployees[empIndex] = { ...updatedEmployees[empIndex] };
           if (updatedEmployees[empIndex].fullName.startsWith("تيم ليدر كود") && finalName !== `تيم ليدر كود ${id}`) {
              updatedEmployees[empIndex].fullName = finalName;
           }
@@ -1792,21 +1842,18 @@ export default function AdminPanel({
 
         if (!updatedEmployees[empIndex].leaderPerformance) {
           updatedEmployees[empIndex].leaderPerformance = [];
+        } else {
+          updatedEmployees[empIndex].leaderPerformance = [...updatedEmployees[empIndex].leaderPerformance!];
         }
         
         const leaderPerf = updatedEmployees[empIndex].leaderPerformance!;
         const perfIdx = leaderPerf.findIndex(p => p.month === pendingLeadersMonth);
         if (perfIdx > -1) {
+          leaderPerf[perfIdx] = { ...leaderPerf[perfIdx] };
           if (ctc !== undefined) leaderPerf[perfIdx].ctc = ctc;
           if (ctb !== undefined) leaderPerf[perfIdx].ctb = ctb;
           if (nps !== undefined) leaderPerf[perfIdx].nps = nps;
-          // Note: we don't delete undefined values if they were mapped as -1, we just preserve the old value.
-          // If the column WAS mapped but the value was blank, it will be parsed as 0 (or undefined for AHT).
-          if (leadersMapping.npsIdx >= 0 && nps === undefined) delete leaderPerf[perfIdx].nps;
-          
           if (aht !== undefined) leaderPerf[perfIdx].aht = aht;
-          if (leadersMapping.ahtIdx >= 0 && aht === undefined) delete leaderPerf[perfIdx].aht;
-          
           if (finalScore !== undefined) leaderPerf[perfIdx].finalScore = finalScore;
           matchedCount++;
         } else {
@@ -1950,6 +1997,11 @@ export default function AdminPanel({
           updatedEmployees.push(newDraft);
           empIndex = updatedEmployees.length - 1;
           draftedCount++;
+        } else {
+          updatedEmployees[empIndex] = {
+            ...updatedEmployees[empIndex],
+            performance: [...updatedEmployees[empIndex].performance]
+          };
         }
 
         const perfIdx = updatedEmployees[empIndex].performance.findIndex(p => p.month === pendingNpsMonth);
@@ -2814,6 +2866,11 @@ export default function AdminPanel({
           updatedEmployees.push(newDraft);
           empIndex = updatedEmployees.length - 1;
           draftedCount++;
+        } else {
+          updatedEmployees[empIndex] = {
+            ...updatedEmployees[empIndex],
+            performance: [...updatedEmployees[empIndex].performance]
+          };
         }
 
         const perfEntry: MonthlyPerformance = {

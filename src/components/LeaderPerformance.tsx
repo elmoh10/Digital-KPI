@@ -4,9 +4,38 @@ import { Search, Calendar as CalendarIcon, Filter, Users, UserCircle, ChevronRig
 import { motion } from "motion/react";
 import { MonthYearSelector } from "./MonthYearSelector";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+import { secondsToAht } from "./EmployeeDashboard";
 
 interface LeaderPerformanceProps {
   employees: Employee[];
+}
+
+function formatLeaderAHT(val?: string | number): string {
+  if (val === undefined || val === null || val === '') return '-';
+  const strVal = String(val).trim();
+  if (strVal.includes(':')) {
+    const parts = strVal.split(':');
+    if (parts.length === 3) {
+      const hr = parseInt(parts[0], 10) || 0;
+      const min = parseInt(parts[1], 10) || 0;
+      const sec = parseInt(parts[2], 10) || 0;
+      const totalMins = hr * 60 + min;
+      return `${String(totalMins).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+    return strVal;
+  }
+  const num = parseFloat(strVal);
+  if (!isNaN(num) && num > 0) {
+    let totalSecs = 0;
+    if (num < 1) {
+      // Excel decimal representing fraction of 24h
+      totalSecs = Math.round(num * 86400);
+    } else {
+      totalSecs = Math.round(num);
+    }
+    return secondsToAht(totalSecs);
+  }
+  return strVal;
 }
 
 export default function LeaderPerformance({ employees }: LeaderPerformanceProps) {
@@ -25,10 +54,23 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
     return employees.filter(emp => emp.leaderPerformance && emp.leaderPerformance.length > 0);
   }, [employees]);
 
-  const [selectedId, setSelectedId] = useState<string>(leaders[0]?.id || "");
-  const [selectedMonth, setSelectedMonth] = useState<string>(availableMonths[availableMonths.length - 1] || "");
+  const [selectedId, setSelectedId] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [showIframeModal, setShowIframeModal] = useState(false);
+
+  // Initialize selectedId and selectedMonth when data becomes available
+  React.useEffect(() => {
+    if (!selectedId && leaders.length > 0) {
+      setSelectedId(leaders[0].id);
+    }
+  }, [leaders, selectedId]);
+
+  React.useEffect(() => {
+    if (!selectedMonth && availableMonths.length > 0) {
+      setSelectedMonth(availableMonths[availableMonths.length - 1]);
+    }
+  }, [availableMonths, selectedMonth]);
 
   const handlePrintPdf = () => {
     const isInIframe = window.self !== window.top;
@@ -177,7 +219,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                     <CalendarIcon className="w-8 h-8 text-slate-300" />
                   </div>
                   <h3 className="text-lg font-display font-medium text-slate-700 mb-2">لا توجد بيانات متاحة لهذا الشهر</h3>
-                  <p className="text-slate-400 text-sm">لم يتم تسجيل تقييم للمشرف <strong>{currentLeader.fullName}</strong> في شهر <strong>{selectedMonth}</strong></p>
+                  <p className="text-slate-400 text-sm">لم يتم تسجيل تقييم للمشرف <strong>{currentLeader?.fullName || "غير محدد"}</strong> في شهر <strong>{selectedMonth}</strong></p>
                 </div>
               ) : (
                 <div id="pdf-export-content-leader">
@@ -300,7 +342,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                         <div>
                           <p className="text-xs font-bold text-slate-500 mb-1">AHT</p>
                           <h4 className="text-2xl font-black text-slate-800 leading-tight">
-                            {activeLeaderRecord.aht !== undefined ? activeLeaderRecord.aht : '-'}
+                            {formatLeaderAHT(activeLeaderRecord.aht)}
                           </h4>
                         </div>
                         <div className="w-10 h-10 bg-amber-100 rounded-2xl flex items-center justify-center">
