@@ -3,7 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Employee, KPITargets } from "./types";
+import { Employee, KPITargets, SystemUser } from "./types";
+
+export const DEFAULT_USERS: SystemUser[] = [
+  { id: "admin-1", username: "hesham.m148011", password: "Etch2410#$#", role: "admin", fullName: "Admin User" },
+  { id: "leader-1", username: "we", password: "we@2026", role: "leader", fullName: "WE Leader" }
+];
 
 export const DEFAULT_KPI_TARGETS: KPITargets = {
   ahtSeconds: 440, // 07:20

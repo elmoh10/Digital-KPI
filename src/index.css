@@ -71,7 +71,7 @@ body {
   }
 
   /* Hide headers, footers, sidebars, selectors and utility items */
-  header, footer, #navigation-tabs, .no-print, #kpi-control-bar, #kpi-search-column, button {
+  header, footer, #navigation-tabs, .no-print, #kpi-control-bar, #kpi-search-column, #weekly-search-column, button {
     display: none !important;
   }
 
@@ -83,12 +83,12 @@ body {
     margin: 0 !important;
   }
 
-  #kpi-main-grid {
+  #kpi-main-grid, #weekly-main-grid {
     grid-template-columns: 1fr !important;
     gap: 0 !important;
   }
 
-  #kpi-dashboard-area {
+  #kpi-dashboard-area, #weekly-dashboard-area, #analytics-workspace {
     grid-column: span 12 / span 12 !important;
     width: 100% !important;
     margin: 0 !important;
@@ -141,17 +141,20 @@ body {
 /* Rolling Marquee Animation styling */
 @keyframes marquee-scroll {
   from {
-    transform: translateX(600px);
+    left: 100%;
+    transform: translate(0, -50%);
   }
   to {
-    transform: translateX(-100%);
+    left: 0%;
+    transform: translate(-100%, -50%);
   }
 }
 
 .animate-marquee-scroll {
-  display: inline-block;
+  position: absolute;
+  top: 50%;
   white-space: nowrap;
-  animation: marquee-scroll 18s linear infinite;
+  animation: marquee-scroll 30s linear infinite;
   will-change: transform;
 }
 

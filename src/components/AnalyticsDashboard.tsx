@@ -7,7 +7,7 @@ import React, { useState, useMemo } from "react";
 import { Employee, KPITargets, HistoricalTargets } from "../types";
 import { 
   TrendingUp, Award, Users, ShieldAlert, ArrowUpRight, BarChart3, 
-  HelpCircle, Sparkles, Filter, Calendar, Zap, AlertCircle, LineChart as LineChartIcon
+  HelpCircle, Sparkles, Filter, Calendar, Zap, AlertCircle, LineChart as LineChartIcon, Printer, X, ExternalLink, AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { ahtToSeconds, secondsToAht, sortMonths } from "./EmployeeDashboard";
@@ -23,8 +23,11 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ employees: rawEmployees, targetsChat, targetsUniversal, historicalTargets }: AnalyticsDashboardProps) {
-  // Only include non-archived employees in analytics by default
-  const employees = useMemo(() => rawEmployees.filter(emp => !emp.isArchived), [rawEmployees]);
+  // Only include non-archived agent employees in analytics by default
+  const employees = useMemo(() => rawEmployees.filter(emp => 
+    !emp.isArchived && 
+    !(emp.performance.length === 0 && emp.leaderPerformance && emp.leaderPerformance.length > 0)
+  ), [rawEmployees]);
 
   // Available Months Aggregated
   const allMonths = useMemo(() => {
@@ -48,6 +51,16 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedTL, setSelectedTL] = useState<string>("All");
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
+  const [showIframeModal, setShowIframeModal] = useState(false);
+
+  const handlePrintPdf = () => {
+    const isInIframe = window.self !== window.top;
+    if (isInIframe) {
+      setShowIframeModal(true);
+    } else {
+      window.print();
+    }
+  };
 
   React.useEffect(() => {
     if (allMonths.length > 0 && !selectedMonth) {
@@ -195,7 +208,7 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
   return (
     <div className="space-y-6" id="analytics-workspace">
       {/* Filters bar */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex justify-between items-center flex-row-reverse" dir="rtl">
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex justify-between items-center flex-row-reverse no-print" dir="rtl">
         <div>
           <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2 justify-end font-bold">
             <Filter className="w-5 h-5 text-we-pink" />
@@ -205,7 +218,19 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrintPdf}
+            className="bg-gradient-to-r from-we-pink to-we-pink-light hover:brightness-110 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all no-print shrink-0"
+            id="print-pdf-report-btn-analytics"
+            title="تصدير الصفحة الحالية لملف PDF"
+          >
+            <Printer className="w-4 h-4" />
+            <span>تصدير PDF</span>
+          </button>
+          
+          <div className="h-4 w-px bg-slate-200 no-print" />
+
+          <div className="flex items-center gap-2 border-r border-slate-200 pr-4">
             <Users className="w-4 h-4 text-slate-400" />
             <select
               value={selectedTL}
@@ -245,7 +270,40 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
           <p className="text-slate-400 text-sm">الرجاء إدخال بيانات أو رفع شيت تقييم لشهر {selectedMonth} أولاً في لوحة التحكم لمشاهدة التحليل الجماعي.</p>
         </div>
       ) : (
-        <>
+        <div id="pdf-export-content-analytics">
+          {/* Print Header Section (Visible only during printing / PDF generation) */}
+          <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header-analytics">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 font-display">تقرير إحصائيات وأداء الفرق</h1>
+                <p className="text-xs text-slate-500 mt-1">بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)</p>
+              </div>
+              {/* WE logo icon */}
+              <div className="w-14 h-14 bg-[#512588] rounded-full flex items-center justify-center shadow-sm">
+                <svg viewBox="0 0 100 100" className="w-9 h-9" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="50" cy="50" r="48" fill="#512588" />
+                  <path 
+                    d="M 18,39 L 18,51 C 18,57 22.5,61 28,61 C 33.5,61 38,57 38,51 L 38,39 L 38,51 C 38,57 42.5,61 48,61 C 53.5,61 58,57 58,51 L 58,39 M 62,50 L 82,50 A 10,10 0 1,0 62,50 A 10,10 0 0,0 80,56" 
+                    stroke="white" 
+                    strokeWidth="7" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                  />
+                </svg>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-y-2 gap-x-8 mt-5 pt-3 border-t border-slate-100 text-[12px] font-semibold text-slate-700">
+              <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
+                <span className="text-slate-400 font-normal">شهر التقرير:</span>
+                <span className="text-slate-900 font-mono font-bold">{selectedMonth}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
+                <span className="text-slate-400 font-normal">تصفية القادة (TL):</span>
+                <span className="text-slate-900 font-bold">{selectedTL === "All" ? "كافة الفرق (All)" : selectedTL}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Main Analytics Cards Group */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6" id="analytics-grid-cards">
             
@@ -517,7 +575,93 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
               </table>
             </div>
           </div>
-        </>
+        </div>
+      )}
+
+      {/* Safe PDF Export / Iframe Helper Modal */}
+      {showIframeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md transition-opacity">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-right"
+            dir="rtl"
+          >
+            <button 
+              onClick={() => setShowIframeModal(false)}
+              className="absolute top-4 left-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              type="button"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">تنبيه هام لتصدير التقرير PDF بنجاح</h3>
+                <p className="text-[10px] text-slate-400 font-medium font-sans">بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 text-xs leading-relaxed text-slate-600">
+              <p className="bg-amber-50 text-amber-800 p-3 rounded-2xl border border-amber-100 font-medium text-[11px] leading-relaxed">
+                عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.
+              </p>
+
+              <div className="space-y-2">
+                <span className="font-bold text-slate-800 block">خطوات بسيطة وسريعة لتصدير PDF:</span>
+                <ul className="list-decimal list-inside space-y-1.5 pr-1 text-[11px]">
+                  <li>يرجى فتح التطبيق في <strong>علامة تبويب جديدة مستقلة (Open App)</strong> من الزر العلوي في شريط منصة AI Studio.</li>
+                  <li>أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:</li>
+                </ul>
+              </div>
+
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between gap-2 font-mono text-[10px] select-all">
+                <span className="text-slate-600 truncate text-[10px] text-left block w-full outline-none" style={{ direction: 'ltr' }}>
+                  {window.location.origin || "https://ais-dev-2wkmibvpsdiusw6tvje2tc-445036694921.europe-west3.run.app"}
+                </span>
+                <button 
+                  onClick={() => {
+                    try {
+                      const url = window.location.href;
+                      navigator.clipboard.writeText(url);
+                    } catch (err) {}
+                  }}
+                  type="button"
+                  className="bg-slate-900 text-white rounded-lg px-2.5 py-1 text-[9px] hover:bg-slate-800 font-sans font-bold shrink-0 cursor-pointer"
+                >
+                  نسخ الرابط
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-400">
+                بمجرد فتح الرابط في نافذة جديدة، اضغط على زر <span className="font-bold text-we-pink">"تصدير PDF"</span> مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!
+              </p>
+            </div>
+
+            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end gap-2">
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-[#512588] hover:bg-[#3d1968] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>فتح التطبيق في نافذة مستقلة</span>
+              </a>
+              <button 
+                onClick={() => setShowIframeModal(false)}
+                type="button"
+                className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-4 py-2 rounded-xl transition-all cursor-pointer"
+              >
+                إغلاق النافذة
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Lock, User, AlertCircle } from "lucide-react";
+import { SystemUser } from "../types";
 
 interface AuthProps {
-  onLogin: (role: "admin" | "leader") => void;
+  onLogin: (role: "admin" | "manager" | "super" | "leader", user?: SystemUser) => void;
+  users: SystemUser[];
 }
 
-export default function Auth({ onLogin }: AuthProps) {
+export default function Auth({ onLogin, users }: AuthProps) {
   const [view, setView] = useState<"splash" | "login">("splash");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +25,14 @@ export default function Auth({ onLogin }: AuthProps) {
     e.preventDefault();
     const cleanUsername = username.trim().toLowerCase();
     
+    // Check dynamic users first
+    const userMatch = users.find(u => u.username.toLowerCase() === cleanUsername && u.password === password);
+    if (userMatch) {
+      onLogin(userMatch.role, userMatch);
+      return;
+    }
+
+    // Fallback hardcoded for safety
     if (cleanUsername === "we" && password === "we@2026") {
       onLogin("leader");
     } else if (cleanUsername === "hesham.m148011" && password === "Etch2410#$#") {

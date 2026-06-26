@@ -4,27 +4,30 @@
  */
 
 import React, { useState, useEffect } from "react";
-import { Employee, KPITargets } from "./types";
+import { Employee, KPITargets, HistoricalTargets, SystemUser } from "./types";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL } from "./data";
 import EmployeeDashboard from "./components/EmployeeDashboard";
 import AdminPanel from "./components/AdminPanel";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import WeeklyPerformance from "./components/WeeklyPerformance";
+import LeaderPerformance from "./components/LeaderPerformance";
 import Auth from "./components/Auth";
 import MaintenancePage from "./components/MaintenancePage";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar
+  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar, Users
 } from "lucide-react";
 import { 
   seedDatabaseIfEmpty, 
   subscribeToConfig, 
   subscribeToEmployees, 
+  subscribeToUsers,
   updateCloudConfig, 
   updateAllEmployeesInCloud,
   updatePresence,
   removePresence,
-  getOnlineCount
+  getOnlineCount,
+  updateLobOptionsConfig
 } from "./lib/firebase";
 
 function OnlineUsersCounter() {
@@ -87,20 +90,23 @@ function OnlineUsersCounter() {
 
 export default function App() {
   // Authentication state
-  const [userRole, setUserRole] = useState<"admin" | "leader" | null>(null);
+  const [userRole, setUserRole] = useState<"admin" | "manager" | "super" | "leader" | null>(null);
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
 
   // Persistence state
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [users, setUsers] = useState<SystemUser[]>([]);
   const [targetsChat, setTargetsChat] = useState<KPITargets>(DEFAULT_KPI_TARGETS_CHAT);
   const [targetsUniversal, setTargetsUniversal] = useState<KPITargets>(DEFAULT_KPI_TARGETS_UNIVERSAL);
   const [historicalTargets, setHistoricalTargets] = useState<HistoricalTargets>({});
   const [bannerNotice, setBannerNotice] = useState<string>("");
   const [dismissedNotice, setDismissedNotice] = useState<string>("");
   const [maintenancePages, setMaintenancePages] = useState<string[]>([]);
+  const [lobOptions, setLobOptions] = useState<string[]>(["Chat / ADSL", "Universal"]);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
   // Active view tab state: "dashboard" | "analytics" | "admin" | "weekly"
-  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "admin" | "weekly">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "analytics" | "admin" | "weekly" | "leaders">("dashboard");
 
   // Support for dark mode
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -129,12 +135,14 @@ export default function App() {
     let active = true;
     let unsubConfig: (() => void) | null = null;
     let unsubEmployees: (() => void) | null = null;
+    let unsubUsers: (() => void) | null = null;
 
     const loadLocalFallback = () => {
       try {
         const storedEmployees = localStorage.getItem("kpi_employees_v1");
         const storedTargetsChat = localStorage.getItem("kpi_targets_chat_v1");
         const storedTargetsUniversal = localStorage.getItem("kpi_targets_universal_v1");
+        const storedUsers = localStorage.getItem("kpi_users_v1");
         if (storedEmployees) setEmployees(JSON.parse(storedEmployees));
         else setEmployees(INITIAL_EMPLOYEES);
 
@@ -143,6 +151,8 @@ export default function App() {
 
         if (storedTargetsUniversal) setTargetsUniversal(JSON.parse(storedTargetsUniversal));
         else setTargetsUniversal(DEFAULT_KPI_TARGETS_UNIVERSAL);
+        
+        if (storedUsers) setUsers(JSON.parse(storedUsers));
       } catch (localErr) {
         setEmployees(INITIAL_EMPLOYEES);
         setTargetsChat(DEFAULT_KPI_TARGETS_CHAT);
@@ -163,6 +173,7 @@ export default function App() {
           setTargetsUniversal(data.targetsUniversal);
           setHistoricalTargets(data.historicalTargets || {});
           setMaintenancePages(data.maintenancePages);
+          setLobOptions(data.lobOptions || ["Chat / ADSL", "Universal"]);
           setBannerNotice(prev => {
             if (prev !== data.bannerNotice) {
               setDismissedNotice("");
@@ -188,6 +199,14 @@ export default function App() {
            console.warn("Employees subscription failed, using local fallback.", err);
            loadLocalFallback();
         });
+        
+        unsubUsers = await subscribeToUsers((list) => {
+          if (!active) return;
+          setUsers(list);
+          localStorage.setItem("kpi_users_v1", JSON.stringify(list));
+        }, (err) => {
+           console.warn("Users subscription failed.", err);
+        });
       } catch (err) {
         console.warn("Failed to load Firebase cloud database, falling back safely", err);
         loadLocalFallback();
@@ -200,6 +219,7 @@ export default function App() {
       active = false;
       if (unsubConfig) unsubConfig();
       if (unsubEmployees) unsubEmployees();
+      if (unsubUsers) unsubUsers();
     };
   }, []);
 
@@ -275,6 +295,16 @@ export default function App() {
     }
   };
 
+  const handleUpdateLobOptions = async (newLobOptions: string[]) => {
+    setLobOptions(newLobOptions);
+    try {
+      await updateLobOptionsConfig(newLobOptions);
+    } catch (err) {
+      console.warn("Failed to update LOB options:", err);
+      throw err;
+    }
+  };
+
   // Time tracker for visual clock
   const [time, setTime] = useState("");
   useEffect(() => {
@@ -287,15 +317,34 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    if (userRole === "leader" && activeTab === "admin") {
-      setActiveTab("dashboard");
+  const hasPermission = (perm: string) => {
+    if (userRole === "admin") return true;
+    if (currentUser?.permissions) {
+      return currentUser.permissions.includes(perm);
     }
-  }, [userRole, activeTab]);
+    // Default fallback if permissions array is undefined
+    if (userRole === "manager") {
+      return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders", "view_admin"].includes(perm);
+    }
+    if (userRole === "super") {
+      return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders"].includes(perm);
+    }
+    if (userRole === "leader") {
+      return ["view_dashboard"].includes(perm);
+    }
+    return false;
+  };
+
+  useEffect(() => {
+    if (!hasPermission(`view_${activeTab}`)) {
+      setActiveTab("dashboard"); // fallback to a safe tab or handle elsewhere
+    }
+  }, [userRole, activeTab, currentUser]);
 
   if (!userRole) {
-    return <Auth onLogin={(role) => {
+    return <Auth users={users} onLogin={(role, user) => {
       setUserRole(role);
+      if (user) setCurrentUser(user);
       setActiveTab("dashboard");
     }} />;
   }
@@ -415,7 +464,7 @@ export default function App() {
         {/* Global Page Toggles Navigation */}
         <div className="border-t border-slate-50 bg-slate-50/50 p-2">
           <div className="max-w-md mx-auto flex bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-100" id="navigation-tabs">
-            {userRole === "admin" && (
+            {hasPermission("view_admin") && (
               <button
                 onClick={() => setActiveTab("admin")}
                 className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
@@ -429,41 +478,61 @@ export default function App() {
               </button>
             )}
 
-            <button
-              onClick={() => setActiveTab("weekly")}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "weekly" 
-                  ? "bg-we-purple text-white shadow-md font-bold" 
-                  : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
-              }`}
-            >
-              <Calendar className="w-4 h-4 shrink-0 text-we-pink" />
-              <span>الأداء الأسبوعي</span>
-            </button>
+            {hasPermission("view_weekly") && (
+              <button
+                onClick={() => setActiveTab("weekly")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "weekly" 
+                    ? "bg-we-purple text-white shadow-md font-bold" 
+                    : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+                }`}
+              >
+                <Calendar className="w-4 h-4 shrink-0 text-we-pink" />
+                <span>الأداء الأسبوعي</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab("analytics")}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "analytics" 
-                  ? "bg-we-purple text-white shadow-md font-bold" 
-                  : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
-              }`}
-            >
-              <BarChart3 className="w-4 h-4 shrink-0 text-we-pink" />
-              <span>تقارير تشغيل الفرق</span>
-            </button>
+            {hasPermission("view_leaders") && (
+              <button
+                onClick={() => setActiveTab("leaders")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "leaders" 
+                    ? "bg-we-purple text-white shadow-md font-bold" 
+                    : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+                }`}
+              >
+                <Users className="w-4 h-4 shrink-0 text-we-pink" />
+                <span>تقييم التيم ليدر</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === "dashboard" 
-                  ? "bg-we-purple text-white shadow-md font-bold" 
-                  : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
-              }`}
-            >
-              <TrendingUp className="w-4 h-4 shrink-0 text-we-pink" />
-              <span>التقييم الفردي</span>
-            </button>
+            {hasPermission("view_analytics") && (
+              <button
+                onClick={() => setActiveTab("analytics")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "analytics" 
+                    ? "bg-we-purple text-white shadow-md font-bold" 
+                    : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 shrink-0 text-we-pink" />
+                <span>تقارير تشغيل الفرق</span>
+              </button>
+            )}
+
+            {hasPermission("view_dashboard") && (
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "dashboard" 
+                    ? "bg-we-purple text-white shadow-md font-bold" 
+                    : "text-slate-500 hover:text-we-purple hover:bg-slate-50"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4 shrink-0 text-we-pink" />
+                <span>التقييم الفردي</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -486,7 +555,7 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-hidden relative flex items-center h-5 w-full mask-edges">
-                <div className="animate-marquee-scroll whitespace-nowrap text-[12px] text-white font-bold tracking-wide drop-shadow-sm px-2">
+                <div className="animate-marquee-scroll whitespace-nowrap w-max text-[12px] text-white font-bold tracking-wide drop-shadow-sm px-2">
                   {bannerNotice}
                 </div>
               </div>
@@ -537,18 +606,25 @@ export default function App() {
                 targetsUniversal={targetsUniversal}
               />
             )}
+            {activeTab === "leaders" && (
+              <LeaderPerformance employees={employees} />
+            )}
             {activeTab === "admin" && (
               <AdminPanel 
                 employees={employees} 
+                users={users}
+                currentUser={currentUser}
                 targetsChat={targetsChat} 
                 targetsUniversal={targetsUniversal} 
                 historicalTargets={historicalTargets}
                 bannerNotice={bannerNotice}
                 maintenancePages={maintenancePages}
+                lobOptions={lobOptions}
                 onUpdateBannerNotice={handleUpdateBannerNotice}
                 onUpdateMaintenancePages={handleUpdateMaintenancePages}
                 onUpdateEmployees={handleUpdateEmployees}
                 onUpdateTargets={handleUpdateTargets}
+                onUpdateLobOptions={handleUpdateLobOptions}
               />
             )}
           </motion.div>

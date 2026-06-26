@@ -12,6 +12,7 @@ import {
   Printer, X, ExternalLink
 } from "lucide-react";
 import { motion } from "motion/react";
+import { MonthYearSelector } from "./MonthYearSelector";
 
 interface EmployeeDashboardProps {
   employees: Employee[];
@@ -67,8 +68,16 @@ export function sortMonths(months: string[]): string[] {
 }
 
 export default function EmployeeDashboard({ employees, targetsChat, targetsUniversal, historicalTargets }: EmployeeDashboardProps) {
+  // Base active employees (excluding leaders-only)
+  const activeAgentEmployees = useMemo(() => {
+    return employees.filter(emp => 
+      !emp.isArchived && 
+      !(emp.performance.length === 0 && emp.leaderPerformance && emp.leaderPerformance.length > 0)
+    );
+  }, [employees]);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<string>(employees[0]?.id || "");
+  const [selectedId, setSelectedId] = useState<string>(activeAgentEmployees[0]?.id || "");
   const [activeTab, setActiveTab] = useState<"card" | "trend" | "sheet">("card");
   const [showIframeModal, setShowIframeModal] = useState(false);
 
@@ -82,12 +91,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
   };
   
   React.useEffect(() => {
-    if (employees.length > 0) {
-      if (!selectedId || !employees.some(emp => emp.id === selectedId)) {
-        setSelectedId(employees[0].id);
+    if (activeAgentEmployees.length > 0) {
+      if (!selectedId || !activeAgentEmployees.some(emp => emp.id === selectedId)) {
+        setSelectedId(activeAgentEmployees[0].id);
       }
     }
-  }, [employees, selectedId]);
+  }, [activeAgentEmployees, selectedId]);
 
   // Find current selected employee
   const currentEmployee = useMemo(() => {
@@ -135,16 +144,15 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
   // Filter employees for search list
   const filteredEmployees = useMemo(() => {
-    const activeEmployees = employees.filter(emp => !emp.isArchived);
-    if (!searchQuery.trim()) return activeEmployees.slice(0, 5);
+    if (!searchQuery.trim()) return activeAgentEmployees.slice(0, 5);
     const query = searchQuery.toLowerCase();
-    return activeEmployees.filter(
+    return activeAgentEmployees.filter(
       emp => 
         emp.fullName.toLowerCase().includes(query) || 
         emp.id.toLowerCase().includes(query) ||
         emp.newTL.toLowerCase().includes(query)
     );
-  }, [employees, searchQuery]);
+  }, [activeAgentEmployees, searchQuery]);
 
   // Calculate some cumulative stats for the selected employee
   const statsOverview = useMemo(() => {
@@ -388,7 +396,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
             <p className="text-slate-400 text-sm">استعمل قائمة البحث في الجانب الأيمن لاستعراض تفاصيل أدائه</p>
           </div>
         ) : (
-          <>
+          <div id="pdf-export-content">
             {/* Print Header Section (Visible only during printing / PDF generation) */}
             <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header">
               <div className="flex justify-between items-center">
@@ -484,17 +492,11 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                 <Calendar className="w-5 h-5 text-we-pink shrink-0" />
                 <span className="text-slate-500 text-xs font-bold">الشهر المراد عرضه:</span>
-                <select
+                <MonthYearSelector
                   value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="bg-slate-50 border border-slate-100 text-slate-800 px-4 py-2 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-we-purple font-mono"
-                >
-                  {availableMonths.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSelectedMonth}
+                  className="w-48"
+                />
               </div>
             </div>
 
@@ -1195,7 +1197,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
               )}
 
             </div>
-          </>
+          </div>
         )}
 
         {/* Safe PDF Export / Iframe Helper Modal */}

@@ -19,6 +19,36 @@ export interface MonthlyPerformance {
   finalScore: number; // e.g. 58 for 58%
 }
 
+export interface WeeklyMetrics {
+  answered?: number;
+  handlingTime?: string;
+  aht?: string;
+  totalSurvey?: number;
+  tnps?: number;
+  fcr?: number;
+  ttb?: number;
+  bb?: number;
+}
+
+export interface MonthlyWeeklyPerformance {
+  month: string;
+  weeks: {
+    week1?: WeeklyMetrics;
+    week2?: WeeklyMetrics;
+    week3?: WeeklyMetrics;
+    week4?: WeeklyMetrics;
+  };
+}
+
+export interface LeaderMonthlyPerformance {
+  month: string;
+  ctc: number;
+  ctb: number;
+  nps?: number;
+  aht?: string;
+  finalScore: number;
+}
+
 export interface Employee {
   id: string;          // ID: 44672
   fullName: string;    // Full Name: Aya Maher Abdo Abdullah
@@ -29,6 +59,8 @@ export interface Employee {
   location: string;    // WFH / Site
   lob: string;         // Chat / ADSL
   performance: MonthlyPerformance[]; // Sorted chronologically
+  weeklyPerformance?: MonthlyWeeklyPerformance[]; 
+  leaderPerformance?: LeaderMonthlyPerformance[];
   isArchived?: boolean; // For soft deletes and hiding from main dashboards
 }
 
@@ -48,3 +80,12 @@ export interface KPITargets {
 }
 
 export type HistoricalTargets = Record<string, { chat: KPITargets, universal: KPITargets }>;
+
+export interface SystemUser {
+  id: string;
+  username: string;
+  password?: string;
+  role: "admin" | "manager" | "super" | "leader";
+  fullName: string;
+  permissions?: string[];
+}

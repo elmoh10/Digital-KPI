@@ -14,8 +14,8 @@ import {
   getCountFromServer,
   serverTimestamp
 } from "firebase/firestore";
-import { Employee, KPITargets } from "../types";
-import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL } from "../data";
+import { Employee, KPITargets, SystemUser } from "../types";
+import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS, DEFAULT_KPI_TARGETS_CHAT, DEFAULT_KPI_TARGETS_UNIVERSAL, DEFAULT_USERS } from "../data";
 
 // Session UUID for presence
 const sessionId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -66,17 +66,63 @@ export async function seedDatabaseIfEmpty() {
       await batch.commit();
       console.log("Database seeded successfully with default WE employees.");
     }
+    
+    // 3. Seed Users
+    const usersColRef = collection(db, "users");
+    const usersSnap = await getDocs(usersColRef);
+    if (usersSnap.empty) {
+      const batch = writeBatch(db);
+      DEFAULT_USERS.forEach((user) => {
+        const docRef = doc(db, "users", user.id);
+        batch.set(docRef, user);
+      });
+      await batch.commit();
+      console.log("Database seeded successfully with default users.");
+    }
   } catch (error) {
     console.warn("Error seeding Firebase database:", error);
     throw error;
   }
 }
 
+export async function subscribeToUsers(onUpdate: (users: SystemUser[]) => void, onError?: (err: Error) => void) {
+  const usersColRef = collection(db, "users");
+  return onSnapshot(usersColRef, (colSnap) => {
+    const list: SystemUser[] = [];
+    colSnap.forEach((docSnap) => {
+      list.push(docSnap.data() as SystemUser);
+    });
+    onUpdate(list);
+  }, (err) => {
+    console.warn("Error subscribing to users:", err);
+    if (onError) onError(err);
+  });
+}
+
+export async function saveUserToCloud(user: SystemUser) {
+  const docRef = doc(db, "users", user.id);
+  await setDoc(docRef, user);
+}
+
+export async function deleteUserFromCloud(userId: string) {
+  const docRef = doc(db, "users", userId);
+  await deleteDoc(docRef);
+}
+
+export async function deleteEmployeesBatch(employeeIds: string[]) {
+  const batch = writeBatch(db);
+  employeeIds.forEach(id => {
+    const docRef = doc(db, "employees", id);
+    batch.delete(docRef);
+  });
+  await batch.commit();
+}
+
 /**
  * Sync configuration from Cloud Database.
  */
 export function subscribeToConfig(
-  onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenancePages: string[] }) => void,
+  onUpdate: (data: { targetsChat: KPITargets; targetsUniversal: KPITargets; historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>; bannerNotice: string; maintenancePages: string[]; lobOptions: string[] }) => void,
   onError?: (err: Error) => void
 ) {
   const configRef = doc(db, "we_config", "general");
@@ -88,7 +134,8 @@ export function subscribeToConfig(
         targetsUniversal: data.targetsUniversal || data.targets || DEFAULT_KPI_TARGETS_UNIVERSAL,
         historicalTargets: data.historicalTargets || {},
         bannerNotice: data.bannerNotice || "",
-        maintenancePages: data.maintenancePages || (data.maintenanceMode ? ["dashboard", "analytics", "weekly"] : [])
+        maintenancePages: data.maintenancePages || (data.maintenanceMode ? ["dashboard", "analytics", "weekly"] : []),
+        lobOptions: data.lobOptions || ["Chat / ADSL", "Universal"]
       });
     }
   }, (err) => {
@@ -135,6 +182,11 @@ export async function updateCloudConfig(targetsChat: KPITargets, targetsUniversa
     payload.historicalTargets = historicalTargets;
   }
   await setDoc(configRef, payload, { merge: true });
+}
+
+export async function updateLobOptionsConfig(lobOptions: string[]) {
+  const configRef = doc(db, "we_config", "general");
+  await setDoc(configRef, { lobOptions }, { merge: true });
 }
 
 /**

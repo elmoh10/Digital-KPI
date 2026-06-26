@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import * as XLSX from "xlsx";
-import { Employee, KPITargets, MonthlyPerformance } from "../types";
+import { Employee, KPITargets, MonthlyPerformance, SystemUser } from "../types";
 import { 
   Lock, KeyRound, Check, Edit3, Plus, Trash2, Database, Upload, Download, 
   HelpCircle, Settings, UserPlus, RefreshCw, LogOut, CheckCircle2,
-  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History
+  AlertCircle, FileSpreadsheet, EyeOff, Eye, Megaphone, Users, Search, Archive, Calendar, History, X
 } from "lucide-react";
 import { motion } from "motion/react";
 import { INITIAL_EMPLOYEES, DEFAULT_KPI_TARGETS } from "../data";
@@ -17,13 +17,17 @@ import { sortMonths } from "./EmployeeDashboard";
 
 interface AdminPanelProps {
   employees: Employee[];
+  users: SystemUser[];
+  currentUser: SystemUser | null;
   targetsChat: KPITargets;
   targetsUniversal: KPITargets;
   historicalTargets?: Record<string, { chat: KPITargets; universal: KPITargets }>;
   bannerNotice?: string;
   maintenancePages?: string[];
+  lobOptions?: string[];
   onUpdateBannerNotice?: (notice: string) => void;
   onUpdateMaintenancePages?: (pages: string[]) => void;
+  onUpdateLobOptions?: (options: string[]) => void;
   onUpdateEmployees: (updated: Employee[]) => void;
   onUpdateTargets: (
     updatedChat: KPITargets, 
@@ -51,6 +55,19 @@ export interface KpiMappingConfig {
   scoreIdx: number;
 }
 
+export interface WeeklyMappingConfig {
+  idIdx: number;
+  nameIdx: number;
+  weeks: {
+    answeredIdx: number;
+    ahtIdx: number;
+    tnpsIdx: number;
+    fcrIdx: number;
+    ttbIdx: number;
+    bbIdx: number;
+  }[];
+}
+
 export interface EmpMappingConfig {
   idIdx: number;
   nameIdx: number;
@@ -67,6 +84,14 @@ export interface NpsMappingConfig {
   npsIdx: number;
   fcrIdx: number;
   ttbIdx: number;
+}
+
+export interface LeadersMappingConfig {
+  idIdx: number;
+  nameIdx: number;
+  ctcIdx: number;
+  ctbIdx: number;
+  finalScoreIdx: number;
 }
 
 export function parsePercentageVal(cellVal: string, defaultVal = 0): number {
@@ -99,15 +124,21 @@ export function getExcelColumnLabel(index: number): string {
   return label;
 }
 
+import { MonthYearSelector } from "./MonthYearSelector";
+
 export default function AdminPanel({
   employees,
+  users,
+  currentUser,
   targetsChat,
   targetsUniversal,
   historicalTargets = {},
   bannerNotice = "",
   maintenancePages = [],
+  lobOptions = ["Chat / ADSL", "Universal"],
   onUpdateBannerNotice = () => {},
   onUpdateMaintenancePages = () => {},
+  onUpdateLobOptions = () => {},
   onUpdateEmployees,
   onUpdateTargets,
 }: AdminPanelProps) {
@@ -115,6 +146,17 @@ export default function AdminPanel({
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem("admin_authenticated") === "true";
   });
+  
+  const hasAdminPermission = useCallback((perm: string) => {
+    if (currentUser?.role === "admin") return true;
+    if (currentUser?.permissions) {
+      return currentUser.permissions.includes(perm);
+    }
+    if (currentUser?.role === "manager") {
+      return ["admin_targets", "admin_employees", "admin_upload_kpi", "admin_upload_weekly", "admin_upload_nps"].includes(perm);
+    }
+    return false;
+  }, [currentUser]);
   
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -141,10 +183,12 @@ export default function AdminPanel({
   }, [localNotice]);
 
   // Control tabs in Admin Dashboard
-  const [adminTab, setAdminTab] = useState<"upload" | "employees" | "targets" | "data">("upload");
+  const [adminTab, setAdminTab] = useState<"upload" | "weekly" | "employees" | "targets" | "data" | "users">("upload");
 
   // Control which LOB targets we are currently editing
   const [editingLOB, setEditingLOB] = useState<"chat" | "universal">("chat");
+
+  const [editingUser, setEditingUser] = useState<Partial<SystemUser> & { id?: string }>({});
 
   // Form States
   const [targetEditingMonth, setTargetEditingMonth] = useState<string>("default");
@@ -190,7 +234,7 @@ export default function AdminPanel({
     mobileNumber: "",
     nationalId: "",
     location: "WFH",
-    lob: "Chat / ADSL",
+    lob: lobOptions[0] || "Chat / ADSL",
   });
   const [empError, setEmpError] = useState("");
   const [empSuccess, setEmpSuccess] = useState("");
@@ -214,14 +258,38 @@ export default function AdminPanel({
   }, [employees, empSearchQuery, showArchived]);
 
   // Paste Spreadsheet Data State
-  const [uploadMode, setUploadMode] = useState<"employees" | "kpi" | "nps">("kpi");
+  const [uploadMode, setUploadMode] = useState<"employees" | "kpi" | "nps" | "weekly" | "leaders">("kpi");
   const [pasteEmpText, setPasteEmpText] = useState("");
   const [pasteKpiText, setPasteKpiText] = useState("");
   const [pasteNpsText, setPasteNpsText] = useState("");
+  const [pasteWeeklyText, setPasteWeeklyText] = useState("");
+  const [pasteLeadersText, setPasteLeadersText] = useState("");
   const [pasteKpiMonth, setPasteKpiMonth] = useState("Jun-25");
   const [pasteNpsMonth, setPasteNpsMonth] = useState("Jun-25");
+  const [pasteWeeklyMonth, setPasteWeeklyMonth] = useState("Jun-25");
+  const [pasteLeadersMonth, setPasteLeadersMonth] = useState("Jun-25");
   const [pasteError, setPasteError] = useState("");
   const [pasteSuccess, setPasteSuccess] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    // If current adminTab is not permitted, auto switch to first permitted one
+    if (adminTab === "upload" && !hasAdminPermission("admin_upload_kpi") && !hasAdminPermission("admin_upload_weekly") && !hasAdminPermission("admin_upload_nps") && !hasAdminPermission("admin_upload_leaders")) {
+      if (hasAdminPermission("admin_employees")) setAdminTab("employees");
+      else if (hasAdminPermission("admin_targets")) setAdminTab("targets");
+      else if (hasAdminPermission("admin_data")) setAdminTab("data");
+      else if (hasAdminPermission("admin_users")) setAdminTab("users");
+    }
+
+    if (adminTab === "upload") {
+      if (uploadMode === "kpi" && !hasAdminPermission("admin_upload_kpi")) {
+        if (hasAdminPermission("admin_upload_weekly")) setUploadMode("weekly");
+        else if (hasAdminPermission("admin_upload_nps")) setUploadMode("nps");
+        else if (hasAdminPermission("admin_upload_leaders")) setUploadMode("leaders");
+        else if (hasAdminPermission("admin_employees")) setUploadMode("employees");
+      }
+    }
+  }, [adminTab, uploadMode, currentUser]); // Keep dependencies safe to avoid infinite loops
 
   // Interactive KPI Mapping State
   const [pendingKpiRows, setPendingKpiRows] = useState<string[][] | null>(null);
@@ -241,6 +309,19 @@ export default function AdminPanel({
     emgIdx: 11,
     unpIdx: 12,
     scoreIdx: 13,
+  });
+
+  const [pendingWeeklyRows, setPendingWeeklyRows] = useState<string[][] | null>(null);
+  const [pendingWeeklyMonth, setPendingWeeklyMonth] = useState<string>("");
+  const [weeklyMapping, setWeeklyMapping] = useState<WeeklyMappingConfig>({
+    idIdx: 0,
+    nameIdx: -1,
+    weeks: [
+      { answeredIdx: -1, ahtIdx: -1, tnpsIdx: -1, fcrIdx: -1, ttbIdx: -1, bbIdx: -1 },
+      { answeredIdx: -1, ahtIdx: -1, tnpsIdx: -1, fcrIdx: -1, ttbIdx: -1, bbIdx: -1 },
+      { answeredIdx: -1, ahtIdx: -1, tnpsIdx: -1, fcrIdx: -1, ttbIdx: -1, bbIdx: -1 },
+      { answeredIdx: -1, ahtIdx: -1, tnpsIdx: -1, fcrIdx: -1, ttbIdx: -1, bbIdx: -1 },
+    ]
   });
   const [detectedHeaders, setDetectedHeaders] = useState<string[]>([]);
   const [headerRowsCount, setHeaderRowsCount] = useState<number>(0);
@@ -271,6 +352,19 @@ export default function AdminPanel({
   });
   const [detectedNpsHeaders, setDetectedNpsHeaders] = useState<string[]>([]);
   const [npsHeaderRowsCount, setNpsHeaderRowsCount] = useState<number>(0);
+
+  // Interactive Leaders Mapping State
+  const [pendingLeadersRows, setPendingLeadersRows] = useState<string[][] | null>(null);
+  const [pendingLeadersMonth, setPendingLeadersMonth] = useState<string>("");
+  const [leadersMapping, setLeadersMapping] = useState<LeadersMappingConfig>({
+    idIdx: 0,
+    nameIdx: 1,
+    ctcIdx: 23, 
+    ctbIdx: 24, 
+    finalScoreIdx: 39,
+  });
+  const [detectedLeadersHeaders, setDetectedLeadersHeaders] = useState<string[]>([]);
+  const [leadersHeaderRowsCount, setLeadersHeaderRowsCount] = useState<number>(0);
 
   // Selected Employee for manual KPI entry
   const [kpiEmployeeId, setKpiEmployeeId] = useState("");
@@ -324,7 +418,7 @@ export default function AdminPanel({
 
   const [resetDialogState, setResetDialogState] = useState<{
     isOpen: boolean;
-    mode: "all" | "employees_only" | "kpi_month" | "nps_month";
+    mode: "all" | "employees_only" | "kpi_month" | "nps_month" | "weekly_month" | "weekly_all";
     selectedMonth: string;
   }>({
     isOpen: false,
@@ -569,6 +663,34 @@ export default function AdminPanel({
           isOpen: true,
           title: "تمت العملية بنجاح",
           message: `تم مسح بيانات الاستطلاعات و NPS لشهر ${resetDialogState.selectedMonth} لجميع الموظفين.`,
+          type: "success"
+        });
+        break;
+      }
+      case "weekly_month": {
+        const updatedEmpsWeekly = employees.map(emp => ({
+          ...emp,
+          weeklyPerformance: emp.weeklyPerformance?.filter(p => p.month !== resetDialogState.selectedMonth) || []
+        }));
+        onUpdateEmployees(updatedEmpsWeekly);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات الأداء الأسبوعي لشهر ${resetDialogState.selectedMonth} لجميع الموظفين.`,
+          type: "success"
+        });
+        break;
+      }
+      case "weekly_all": {
+        const updatedEmpsWeeklyAll = employees.map(emp => ({
+          ...emp,
+          weeklyPerformance: []
+        }));
+        onUpdateEmployees(updatedEmpsWeeklyAll);
+        setDialogAlert({
+          isOpen: true,
+          title: "تمت العملية بنجاح",
+          message: `تم مسح بيانات الأداء الأسبوعي لجميع الشهور ولجميع الموظفين.`,
           type: "success"
         });
         break;
@@ -823,9 +945,9 @@ export default function AdminPanel({
     setEmpHeaderRowsCount(headerRowsCountIdx);
   };
 
-  const confirmPendingEmployees = () => {
+  const confirmPendingEmployees = async () => {
     if (!pendingEmpRows) return;
-
+    setIsProcessing(true);
     try {
       const rows = empHeaderRowsCount > 0 ? pendingEmpRows.slice(empHeaderRowsCount) : pendingEmpRows;
       const updatedEmployees: Employee[] = [];
@@ -867,13 +989,16 @@ export default function AdminPanel({
           }
         }
 
-        let lob = "Chat / ADSL";
+        let lob = lobOptions[0] || "Chat / ADSL";
         if (empMapping.lobIdx !== -1 && row[empMapping.lobIdx]) {
           const rawLob = row[empMapping.lobIdx].toLowerCase();
-          if (rawLob.includes("mobile") || rawLob.includes("موبايل")) {
-            lob = "Chat / Mobile";
+          const matched = lobOptions.find(o => rawLob.includes(o.toLowerCase()));
+          if (matched) {
+            lob = matched;
+          } else if (rawLob.includes("mobile") || rawLob.includes("موبايل")) {
+            lob = lobOptions.includes("Chat / Mobile") ? "Chat / Mobile" : lobOptions[0];
           } else if (rawLob.includes("ftth") || rawLob.includes("voice") || rawLob.includes("صوت")) {
-            lob = "VOICE / FTTH";
+            lob = lobOptions.includes("VOICE / FTTH") ? "VOICE / FTTH" : lobOptions[0];
           } else {
             lob = row[empMapping.lobIdx];
           }
@@ -908,7 +1033,7 @@ export default function AdminPanel({
         }
       });
 
-      onUpdateEmployees(updatedEmployees);
+      await onUpdateEmployees(updatedEmployees);
       setPasteSuccess(`بنجاح! تم تحديث بيانات ${updatedCount} موظفاً، وتسجيل ${createdCount} موظفاً جديداً بسجل المنظومة.`);
       setPasteEmpText("");
       setPasteError("");
@@ -916,6 +1041,8 @@ export default function AdminPanel({
       setTimeout(() => setPasteSuccess(""), 10000);
     } catch (e) {
       setPasteError("حدث خطأ أثناء رصد بيانات شيت الموظفين. يرجى التحقق من صياغة الأعمدة وملاءمتها.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1332,9 +1459,9 @@ export default function AdminPanel({
     setHeaderRowsCount(headerRowsCountIdx);
   };
 
-  const confirmPendingKpi = () => {
+  const confirmPendingKpi = async () => {
     if (!pendingKpiRows || !pendingKpiMonth) return;
-
+    setIsProcessing(true);
     try {
       const rows = headerRowsCount > 0 ? pendingKpiRows.slice(headerRowsCount) : pendingKpiRows;
       const updatedEmployees = [...employees];
@@ -1441,7 +1568,7 @@ export default function AdminPanel({
         matchedCount++;
       });
 
-      onUpdateEmployees(updatedEmployees);
+      await onUpdateEmployees(updatedEmployees);
 
       setPasteSuccess(`تم تحديث شيت الـ KPI بنجاح! تم رصد مؤشرات الأداء لـ ${matchedCount} موظفاً لشهر ${pendingKpiMonth}. (تم استحداث ${draftedCount} ملفات كادر مؤقتة للأكواد غير المسجلة مسبقاً)`);
       setPasteKpiText("");
@@ -1452,6 +1579,169 @@ export default function AdminPanel({
       setTimeout(() => setPasteSuccess(""), 15000);
     } catch (e) {
       setPasteError("حدث خطأ غير متوقع أثناء رصد البيانات. يرجى التحقق من صياغة الأعمدة وملاءمتها للموظفين.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const processRawLeadersMatrix = (rawRows: string[][], selectedMonth: string) => {
+    // Heuristic function to detect if a row is a header row
+    const isHeaderRow = (rowFields: string[]): boolean => {
+      if (rowFields.length === 0) return false;
+      const headerKeywords = [
+        "id", "code", "كود", "num", "رقم",
+        "leader", "team leader", "ctc", "ctb", "score", "final", "temp"
+      ];
+      let matchCount = 0;
+      let nonNumericCount = 0;
+      let filledCount = 0;
+      rowFields.forEach(cell => {
+        const c = cell.toLowerCase().trim();
+        if (!c) return;
+        filledCount++;
+        if (isNaN(Number(c)) || c === "") {
+          nonNumericCount++;
+        }
+        if (headerKeywords.some(keyword => c.includes(keyword))) {
+          matchCount++;
+        }
+      });
+      if (filledCount === 0) return false;
+      return (matchCount >= 2) || (nonNumericCount / filledCount > 0.6 && filledCount >= 2);
+    };
+
+    let leadersHeaderRowsCountIdx = 0;
+    for (let i = 0; i < Math.min(rawRows.length, 3); i++) {
+      if (isHeaderRow(rawRows[i])) {
+        leadersHeaderRowsCountIdx = i + 1;
+      } else {
+        break;
+      }
+    }
+
+    const numCols = Math.max(...rawRows.map(r => r.length));
+    const combinedHeaders: string[] = Array(numCols).fill("");
+    if (leadersHeaderRowsCountIdx > 0) {
+      for (let c = 0; c < numCols; c++) {
+        const tokens: string[] = [];
+        for (let r = 0; r < leadersHeaderRowsCountIdx; r++) {
+          const cell = rawRows[r][c]?.trim();
+          if (cell) tokens.push(cell);
+        }
+        combinedHeaders[c] = tokens.join(" ").trim();
+      }
+    }
+
+    let idIdx = 0;
+    let nameIdx = 1;
+    let ctcIdx = 23;
+    let ctbIdx = 24;
+    let finalScoreIdx = 39;
+
+    if (leadersHeaderRowsCountIdx > 0) {
+      combinedHeaders.forEach((h, i) => {
+        const norm = h.toLowerCase();
+        if (norm === "id" || norm === "كود" || norm.includes("temp id")) idIdx = i;
+        else if (norm === "name" || norm === "اسم" || norm.includes("team leader")) nameIdx = i;
+        else if (norm === "ctc %" || norm.includes("ctc")) ctcIdx = i;
+        else if (norm === "ctb %" || norm.includes("ctb")) ctbIdx = i;
+        else if (norm === "final score" || norm.includes("final")) finalScoreIdx = i;
+      });
+    }
+
+    setPendingLeadersRows(rawRows);
+    setPendingLeadersMonth(selectedMonth);
+    setLeadersMapping({
+      idIdx: idIdx < numCols ? idIdx : 0,
+      nameIdx: nameIdx < numCols ? nameIdx : 1,
+      ctcIdx: ctcIdx < numCols ? ctcIdx : 23,
+      ctbIdx: ctbIdx < numCols ? ctbIdx : 24,
+      finalScoreIdx: finalScoreIdx < numCols ? finalScoreIdx : 39,
+    });
+    setDetectedLeadersHeaders(combinedHeaders.map((hdr, idx) => {
+      const colLabel = getExcelColumnLabel(idx);
+      return hdr ? `[العمود ${colLabel}] - ${hdr}` : `العمود ${colLabel} (فارغ)`;
+    }));
+    setLeadersHeaderRowsCount(leadersHeaderRowsCountIdx);
+  };
+
+  const confirmPendingLeaders = async () => {
+    if (!pendingLeadersRows || !pendingLeadersMonth) return;
+    setIsProcessing(true);
+    try {
+      const rows = leadersHeaderRowsCount > 0 ? pendingLeadersRows.slice(leadersHeaderRowsCount) : pendingLeadersRows;
+      const updatedEmployees = [...employees];
+      let matchedCount = 0;
+      let draftedCount = 0;
+
+      rows.forEach(row => {
+        let id = row[leadersMapping.idIdx]?.trim() || "";
+        if (id.endsWith(".0")) {
+          id = id.substring(0, id.length - 2);
+        }
+        if (!id) return;
+
+        const ctc = parsePercentageVal(row[leadersMapping.ctcIdx] || "", 0);
+        const ctb = parsePercentageVal(row[leadersMapping.ctbIdx] || "", 0);
+        const finalScore = parsePercentageVal(row[leadersMapping.finalScoreIdx] || "", 0);
+        const rawName = row[leadersMapping.nameIdx]?.trim() || `تيم ليدر كود ${id}`;
+
+        let empIndex = updatedEmployees.findIndex(e => e.id === id);
+        if (empIndex === -1) {
+          const newDraft: Employee = {
+            id,
+            fullName: rawName,
+            newTL: "",
+            newSV: "",
+            mobileNumber: "",
+            nationalId: "",
+            location: "WFH",
+            lob: "Chat / ADSL",
+            performance: [],
+            leaderPerformance: []
+          };
+          updatedEmployees.push(newDraft);
+          empIndex = updatedEmployees.length - 1;
+          draftedCount++;
+        } else {
+          // If the leader exists, we can optionally update their name if it was a generic one before
+          if (updatedEmployees[empIndex].fullName.startsWith("تيم ليدر كود") && rawName !== `تيم ليدر كود ${id}`) {
+             updatedEmployees[empIndex].fullName = rawName;
+          }
+        }
+
+        if (!updatedEmployees[empIndex].leaderPerformance) {
+          updatedEmployees[empIndex].leaderPerformance = [];
+        }
+        
+        const leaderPerf = updatedEmployees[empIndex].leaderPerformance!;
+        const perfIdx = leaderPerf.findIndex(p => p.month === pendingLeadersMonth);
+        if (perfIdx > -1) {
+          leaderPerf[perfIdx].ctc = ctc;
+          leaderPerf[perfIdx].ctb = ctb;
+          leaderPerf[perfIdx].finalScore = finalScore;
+          matchedCount++;
+        } else {
+          leaderPerf.push({
+            month: pendingLeadersMonth,
+            ctc,
+            ctb,
+            finalScore,
+          });
+          matchedCount++;
+        }
+      });
+
+      await onUpdateEmployees(updatedEmployees);
+      setPasteSuccess(`تم معالجة التقييم بنجاح: تم تحديث/إضافة بيانات ${matchedCount} تيم ليدر، وإنشاء ${draftedCount} ملف كمسودة للأكواد الجديدة.`);
+      setPendingLeadersRows(null);
+      setPendingLeadersMonth("");
+      setPasteLeadersText("");
+    } catch (error) {
+      console.error(error);
+      setPasteError("حدث خطأ أثناء معالجة تقييمات الليدر. تأكد من صحة التنسيق.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1533,9 +1823,9 @@ export default function AdminPanel({
     setNpsHeaderRowsCount(npsHeaderRowsCountIdx);
   };
 
-  const confirmPendingNps = () => {
+  const confirmPendingNps = async () => {
     if (!pendingNpsRows || !pendingNpsMonth) return;
-
+    setIsProcessing(true);
     try {
       const rows = npsHeaderRowsCount > 0 ? pendingNpsRows.slice(npsHeaderRowsCount) : pendingNpsRows;
       const updatedEmployees = [...employees];
@@ -1597,7 +1887,7 @@ export default function AdminPanel({
         }
       });
 
-      onUpdateEmployees(updatedEmployees);
+      await onUpdateEmployees(updatedEmployees);
       setPasteSuccess(`تم تحديث شيت إضافات NPS بنجاح لعدد ${matchedCount} موظفاً (وتم إنشاء ${draftedCount} ملف كادر مؤقت).`);
       setPasteNpsText("");
       setPasteError("");
@@ -1607,6 +1897,8 @@ export default function AdminPanel({
       setTimeout(() => setPasteSuccess(""), 15000);
     } catch (e) {
       setPasteError("حدث خطأ غير متوقع أثناء رصد البيانات. يرجى التحقق من الخصائص.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -1643,6 +1935,10 @@ export default function AdminPanel({
             processRawEmployeesMatrix(rawRows);
           } else if (uploadMode === "nps") {
             processRawNpsMatrix(rawRows, pasteNpsMonth);
+          } else if (uploadMode === "weekly") {
+            processRawWeeklyMatrix(rawRows, pasteWeeklyMonth);
+          } else if (uploadMode === "leaders") {
+            processRawLeadersMatrix(rawRows, pasteLeadersMonth);
           } else {
             processRawKpiMatrix(rawRows, pasteKpiMonth);
           }
@@ -1701,6 +1997,10 @@ export default function AdminPanel({
             processRawEmployeesMatrix(rawRows);
           } else if (uploadMode === "nps") {
             processRawNpsMatrix(rawRows, pasteNpsMonth);
+          } else if (uploadMode === "weekly") {
+            processRawWeeklyMatrix(rawRows, pasteWeeklyMonth);
+          } else if (uploadMode === "leaders") {
+            processRawLeadersMatrix(rawRows, pasteLeadersMonth);
           } else {
             processRawKpiMatrix(rawRows, pasteKpiMonth);
           }
@@ -1713,6 +2013,245 @@ export default function AdminPanel({
     
     // reset target value so the same file name can be uploaded again
     e.target.value = "";
+  };
+
+  const processRawWeeklyMatrix = (rawRows: string[][], selectedMonth: string) => {
+    const isHeaderRow = (rowFields: string[]): boolean => {
+      if (rowFields.length === 0) return false;
+      const headerKeywords = ["id", "code", "كود", "num", "رقم", "name", "الاسم", "اسم"];
+      return rowFields.some(field => headerKeywords.some(kw => String(field).toLowerCase().includes(kw)));
+    };
+
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(10, rawRows.length); i++) {
+      if (isHeaderRow(rawRows[i])) {
+        headerRowIdx = i;
+        break;
+      }
+    }
+
+    if (headerRowIdx === -1) {
+      setPasteError("لم يتم العثور على صف العناوين في البيانات المدخلة للأداء الأسبوعي.");
+      return;
+    }
+
+    const headers = rawRows[headerRowIdx];
+    
+    const newMapping: WeeklyMappingConfig = {
+      idIdx: headers.findIndex(h => /id|code|كود/i.test(String(h))),
+      nameIdx: headers.findIndex(h => /name|الاسم|اسم/i.test(String(h))),
+      weeks: []
+    };
+
+    const answeredIndexes = headers.map((h, i) => /answered/i.test(String(h)) ? i : -1).filter(i => i !== -1);
+    
+    for (let i = 0; i < 4; i++) {
+      if (i < answeredIndexes.length) {
+        const startIdx = answeredIndexes[i];
+        newMapping.weeks.push({
+          answeredIdx: startIdx,
+          ahtIdx: startIdx + 2,
+          tnpsIdx: startIdx + 4,
+          fcrIdx: startIdx + 5,
+          ttbIdx: startIdx + 6,
+          bbIdx: startIdx + 7
+        });
+      } else {
+        newMapping.weeks.push({
+          answeredIdx: -1, ahtIdx: -1, tnpsIdx: -1, fcrIdx: -1, ttbIdx: -1, bbIdx: -1
+        });
+      }
+    }
+
+    setDetectedHeaders(headers);
+    setHeaderRowsCount(headerRowIdx + 1);
+    setWeeklyMapping(newMapping);
+    setPendingWeeklyRows(rawRows);
+    setPasteSuccess("تم قراءة الشيت بنجاح. يرجى مراجعة وتأكيد مطابقة الأعمدة أدناه.");
+  };
+
+  const handleConfirmWeeklyUpload = async () => {
+    if (!pendingWeeklyRows) return;
+    setIsProcessing(true);
+    try {
+      const dataRows = pendingWeeklyRows.slice(headerRowsCount);
+      let matchedCount = 0;
+      let draftedCount = 0;
+      const updatedEmployees = [...employees];
+
+      for (const row of dataRows) {
+        if (row.length === 0 || !row.some(cell => cell.trim() !== "")) continue;
+
+        let rawId = "";
+        if (weeklyMapping.idIdx !== -1 && row[weeklyMapping.idIdx]) {
+          rawId = String(row[weeklyMapping.idIdx]).trim();
+        } else continue;
+
+        const cleanId = rawId.replace(/[^a-zA-Z0-9]/g, "");
+        if (!cleanId) continue;
+
+        let emp = updatedEmployees.find(e => e.id.toLowerCase() === cleanId.toLowerCase());
+        if (!emp) {
+          emp = {
+            id: cleanId,
+            fullName: weeklyMapping.nameIdx !== -1 ? String(row[weeklyMapping.nameIdx] || "غير محدد").trim() : "غير محدد",
+            newTL: "غير محدد",
+            newSV: "غير محدد",
+            mobileNumber: "",
+            nationalId: "",
+            location: "Site",
+            lob: "Chat",
+            performance: [],
+            weeklyPerformance: []
+          };
+          updatedEmployees.push(emp);
+          draftedCount++;
+        }
+
+        matchedCount++;
+        if (!emp.weeklyPerformance) emp.weeklyPerformance = [];
+
+        let weeklyRecord = emp.weeklyPerformance.find(w => w.month === pasteWeeklyMonth);
+        if (!weeklyRecord) {
+          weeklyRecord = { month: pasteWeeklyMonth, weeks: {} };
+          emp.weeklyPerformance.push(weeklyRecord);
+        }
+
+        const parseVal = (val: string | undefined): number => {
+          if (!val) return 0;
+          return parsePercentageVal(val, 0);
+        };
+
+        const weeksArr = [
+          { key: "week1" as const, mapping: weeklyMapping.weeks[0] },
+          { key: "week2" as const, mapping: weeklyMapping.weeks[1] },
+          { key: "week3" as const, mapping: weeklyMapping.weeks[2] },
+          { key: "week4" as const, mapping: weeklyMapping.weeks[3] }
+        ];
+
+        weeksArr.forEach(({ key, mapping }) => {
+          const hasAnyMappedData = (
+            (mapping.answeredIdx !== -1 && row[mapping.answeredIdx] !== undefined && row[mapping.answeredIdx].trim() !== "") ||
+            (mapping.ahtIdx !== -1 && row[mapping.ahtIdx] !== undefined && row[mapping.ahtIdx].trim() !== "") ||
+            (mapping.tnpsIdx !== -1 && row[mapping.tnpsIdx] !== undefined && row[mapping.tnpsIdx].trim() !== "") ||
+            (mapping.fcrIdx !== -1 && row[mapping.fcrIdx] !== undefined && row[mapping.fcrIdx].trim() !== "") ||
+            (mapping.ttbIdx !== -1 && row[mapping.ttbIdx] !== undefined && row[mapping.ttbIdx].trim() !== "") ||
+            (mapping.bbIdx !== -1 && row[mapping.bbIdx] !== undefined && row[mapping.bbIdx].trim() !== "")
+          );
+
+          if (hasAnyMappedData) {
+            weeklyRecord!.weeks[key] = {
+              answered: mapping.answeredIdx !== -1 ? parseVal(row[mapping.answeredIdx]) : 0,
+              aht: mapping.ahtIdx !== -1 ? String(row[mapping.ahtIdx] || "0:00").trim() : "0:00",
+              tnps: mapping.tnpsIdx !== -1 ? parseVal(row[mapping.tnpsIdx]) : 0,
+              fcr: mapping.fcrIdx !== -1 ? parseVal(row[mapping.fcrIdx]) : 0,
+              ttb: mapping.ttbIdx !== -1 ? parseVal(row[mapping.ttbIdx]) : 0,
+              bb: mapping.bbIdx !== -1 ? parseVal(row[mapping.bbIdx]) : 0,
+            };
+          }
+        });
+      }
+
+      await onUpdateEmployees(updatedEmployees);
+      setPasteSuccess(`بنجاح! تم تحديث الأداء الأسبوعي لـ ${matchedCount} موظفاً لشهر ${pasteWeeklyMonth}. (تم إنشاء ${draftedCount} ملفات مؤقتة)`);
+      setPasteWeeklyText("");
+      setPendingWeeklyRows(null);
+      setTimeout(() => setPasteSuccess(""), 10000);
+    } catch (e) {
+      setPasteError("حدث خطأ أثناء رصد البيانات. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUploadLeaders = async () => {
+    if (!pasteLeadersText.trim()) {
+      setPasteError(`الرجاء لصق خلايا من شيت تقييم التيم ليدر لشهر ${pasteLeadersMonth} أولاً.`);
+      return;
+    }
+
+    try {
+      const lines = pasteLeadersText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) {
+        setPasteError("لا توجد بيانات صالحة لمعالجتها.");
+        return;
+      }
+
+      const detectSeparator = (sampleLine: string): string => {
+        if (sampleLine.includes("\t")) return "\t";
+        if (sampleLine.includes(",")) return ",";
+        return "\t";
+      };
+
+      const sep = detectSeparator(lines[0] || "");
+      const rawRows = lines.map(line => {
+        let cells = line.split(sep);
+        if (sep === "," && line.includes('"')) {
+          const regex = /(".*?"|[^",]+)(?=\s*,|\s*$)/g;
+          const matches = line.match(regex);
+          if (matches) {
+            cells = matches;
+          }
+        }
+        return cells.map(cell => cell.trim().replace(/^["']|["']$/g, "").trim());
+      });
+
+      processRawLeadersMatrix(rawRows, pasteLeadersMonth);
+    } catch (error) {
+      console.error(error);
+      setPasteError("فشل في قراءة البيانات. تأكد من نسخ البيانات بشكل صحيح من ملف الإكسيل.");
+    }
+  };
+
+  const handleUploadWeekly = async () => {
+    if (!pasteWeeklyText.trim()) {
+      setPasteError(`الرجاء لصق خلايا من شيت الأداء الأسبوعي لشهر ${pasteWeeklyMonth} أولاً.`);
+      return;
+    }
+
+    try {
+      const lines = pasteWeeklyText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) {
+        setPasteError("لا توجد بيانات صالحة لمعالجتها.");
+        return;
+      }
+
+      const detectSeparator = (sampleLine: string): string => {
+        if (sampleLine.includes("\t")) return "\t";
+        if (sampleLine.includes(",")) return ",";
+        return "\t";
+      };
+      
+      const sep = detectSeparator(lines[0] || "");
+      const rawRows = lines.map(line => {
+        let cells: string[];
+        if (sep === ",") {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current);
+              current = '';
+              continue;
+            }
+            current += char;
+          }
+          result.push(current);
+          cells = result;
+        } else {
+          cells = line.split("\t");
+        }
+        return cells.map(cell => cell.trim().replace(/^["']|["']$/g, "").trim());
+      });
+
+      processRawWeeklyMatrix(rawRows, pasteWeeklyMonth);
+    } catch (error) {
+      setPasteError("حدث خطأ أثناء قراءة البيانات المنسوخة.");
+    }
   };
 
   const handleUploadKPI = async () => {
@@ -2287,7 +2826,7 @@ export default function AdminPanel({
   };
 
   // If NOT logged in, show elegant custom Login screen
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !currentUser) {
     return (
       <div className="max-w-md mx-auto my-12" id="admin-login-wrapper">
         <motion.div
@@ -2415,43 +2954,285 @@ export default function AdminPanel({
       </div>
 
       {/* Admin Tabs */}
-      <div className="flex bg-slate-250 p-1.5 rounded-2xl w-full max-w-2xl mx-auto bg-slate-100 overflow-x-auto" id="admin-inner-tabs">
-        <button
-          onClick={() => setAdminTab("data")}
-          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            adminTab === "data" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          البيانات والنظام
-        </button>
-        <button
-          onClick={() => setAdminTab("targets")}
-          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            adminTab === "targets" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          تحديث نسب الأهداف
-        </button>
-        <button
-          onClick={() => setAdminTab("employees")}
-          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            adminTab === "employees" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          إدارة الموظفين
-        </button>
-        <button
-          onClick={() => setAdminTab("upload")}
-          className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-            adminTab === "upload" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          رفع شيت التقييم (KPI)
-        </button>
+      <div className="flex bg-slate-250 p-1.5 rounded-2xl w-full max-w-3xl mx-auto bg-slate-100 overflow-x-auto" id="admin-inner-tabs">
+        {hasAdminPermission("admin_users") && (
+          <button
+            onClick={() => setAdminTab("users")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              adminTab === "users" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            إدارة المستخدمين
+          </button>
+        )}
+        {hasAdminPermission("admin_data") && (
+          <button
+            onClick={() => setAdminTab("data")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              adminTab === "data" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            البيانات والنظام
+          </button>
+        )}
+        {hasAdminPermission("admin_targets") && (
+          <button
+            onClick={() => setAdminTab("targets")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              adminTab === "targets" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            تحديث نسب الأهداف
+          </button>
+        )}
+        {hasAdminPermission("admin_employees") && (
+          <button
+            onClick={() => setAdminTab("employees")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              adminTab === "employees" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            إدارة الموظفين
+          </button>
+        )}
+        {(hasAdminPermission("admin_upload_kpi") || hasAdminPermission("admin_upload_weekly") || hasAdminPermission("admin_upload_nps") || hasAdminPermission("admin_upload_leaders")) && (
+          <button
+            onClick={() => setAdminTab("upload")}
+            className={`flex-1 min-w-max px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+              adminTab === "upload" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            رفع شيت التقييم (KPI)
+          </button>
+        )}
       </div>
 
       {/* Subtab Contents */}
       <div id="admin-subtab-view">
+        {/* TAB USERS: USER MANAGEMENT */}
+        {adminTab === "users" && hasAdminPermission("admin_users") && (
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8" dir="rtl">
+            <div className="md:col-span-5 bg-white rounded-3xl border border-slate-100 p-6 space-y-4 text-right">
+              <h3 className="text-md font-display font-semibold text-slate-800 flex items-center gap-2">
+                <Users className="w-5 h-5 text-indigo-505" />
+                إدارة المستخدمين للنظام
+              </h3>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                إضافة مستخدمين جدد للنظام بصلاحيات محددة. (ادمن، مدير، مشرف، قائد فريق).
+              </p>
+              
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  const newUser: SystemUser = {
+                    id: editingUser.id || Math.random().toString(36).substr(2, 9),
+                    role: editingUser.role || "leader",
+                    fullName: editingUser.fullName || "",
+                    username: editingUser.username || "",
+                    password: editingUser.password || "",
+                  };
+                  
+                  // Use explicitly set permissions or fallback to role defaults
+                  const getRoleDefaultPermissions = (r: string) => {
+                    if (r === "admin" || r === "manager") return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders", "view_admin"];
+                    if (r === "super") return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders"];
+                    if (r === "leader") return ["view_dashboard"];
+                    return [];
+                  };
+                  newUser.permissions = editingUser.permissions ?? getRoleDefaultPermissions(newUser.role);
+
+                  const { saveUserToCloud } = await import("../lib/firebase");
+                  await saveUserToCloud(newUser);
+                  setEditingUser({});
+                  setDialogAlert({ isOpen: true, title: "نجاح", message: "تم حفظ بيانات المستخدم بنجاح.", type: "success" });
+                } catch (err) {
+                  setDialogAlert({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء حفظ المستخدم.", type: "error" });
+                }
+              }} className="space-y-4 pt-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">الاسم بالكامل</label>
+                  <input type="text" value={editingUser.fullName || ""} onChange={e => setEditingUser(prev => ({...prev, fullName: e.target.value}))} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-we-purple/20 transition-all font-semibold" placeholder="مثال: أحمد محمود" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">اسم المستخدم (للدخول)</label>
+                  <input type="text" value={editingUser.username || ""} onChange={e => setEditingUser(prev => ({...prev, username: e.target.value}))} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-we-purple/20 transition-all font-mono" placeholder="username" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">كلمة المرور</label>
+                  <input type="text" value={editingUser.password || ""} onChange={e => setEditingUser(prev => ({...prev, password: e.target.value}))} required className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-we-purple/20 transition-all font-mono" placeholder="password" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 mb-1.5">المسمى الوظيفي</label>
+                  <select 
+                    value={editingUser.role || "leader"} 
+                    onChange={e => {
+                      const newRole = e.target.value as any;
+                      // When role changes, reset permissions so they inherit the new defaults
+                      setEditingUser(prev => ({...prev, role: newRole, permissions: undefined}));
+                    }} 
+                    required 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-we-purple/20 transition-all font-semibold"
+                  >
+                    <option value="admin">أدمن (Admin)</option>
+                    <option value="manager">مدير (Manager)</option>
+                    <option value="super">مشرف (Supervisor)</option>
+                    <option value="leader">قائد فريق (Leader)</option>
+                  </select>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
+                  <label className="block text-[11px] font-bold text-slate-700 border-b border-slate-200 pb-2 mb-2">الصلاحيات المخصصة:</label>
+                  
+                  {(() => {
+                    const getRoleDefaultPermissions = (r: string) => {
+                      if (r === "admin") return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders", "view_admin", "admin_users", "admin_data", "admin_targets", "admin_employees", "admin_upload_kpi", "admin_upload_weekly", "admin_upload_nps", "admin_upload_leaders"];
+                      if (r === "manager") return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders", "view_admin", "admin_targets", "admin_employees", "admin_upload_kpi", "admin_upload_weekly", "admin_upload_nps", "admin_upload_leaders"];
+                      if (r === "super") return ["view_dashboard", "view_analytics", "view_weekly", "view_leaders"];
+                      if (r === "leader") return ["view_dashboard"];
+                      return [];
+                    };
+                    const currentPerms = editingUser.permissions ?? getRoleDefaultPermissions(editingUser.role || "leader");
+
+                    const PERMISSIONS = [
+                      { group: "واجهات العرض", items: [
+                        { id: "view_dashboard", label: "التقييم الفردي" },
+                        { id: "view_analytics", label: "تقارير تشغيل الفرق" },
+                        { id: "view_weekly", label: "الأداء الأسبوعي" },
+                        { id: "view_leaders", label: "تقييم التيم ليدر" },
+                        { id: "view_admin", label: "لوحة الإدارة (يتطلب صلاحيات فرعية)" },
+                      ]},
+                      { group: "صلاحيات لوحة الإدارة", items: [
+                        { id: "admin_users", label: "إدارة المستخدمين" },
+                        { id: "admin_data", label: "البيانات والنظام" },
+                        { id: "admin_targets", label: "تحديث نسب الأهداف" },
+                        { id: "admin_employees", label: "إدارة الموظفين" },
+                      ]},
+                      { group: "رفع البيانات", items: [
+                        { id: "admin_upload_kpi", label: "رفع شيت KPI الشهري" },
+                        { id: "admin_upload_weekly", label: "رفع الأداء الأسبوعي" },
+                        { id: "admin_upload_nps", label: "رفع شيت NPS" },
+                        { id: "admin_upload_leaders", label: "رفع شيت تقييم التيم ليدر" },
+                      ]}
+                    ];
+
+                    return (
+                      <div className="space-y-4 max-h-64 overflow-y-auto pl-2">
+                        {PERMISSIONS.map(group => (
+                          <div key={group.group} className="space-y-1.5">
+                            <h5 className="text-[10px] text-indigo-600 font-bold">{group.group}</h5>
+                            <div className="grid grid-cols-2 gap-2">
+                              {group.items.map(perm => (
+                                <label key={perm.id} className="flex items-center gap-2 cursor-pointer group">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-3.5 h-3.5 rounded border-slate-300 text-we-purple focus:ring-we-purple"
+                                    checked={currentPerms.includes(perm.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setEditingUser(prev => ({...prev, permissions: [...currentPerms, perm.id]}));
+                                      } else {
+                                        setEditingUser(prev => ({...prev, permissions: currentPerms.filter(p => p !== perm.id)}));
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-[10px] font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">{perm.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="flex gap-2">
+                  {editingUser.id && (
+                    <button type="button" onClick={() => setEditingUser({})} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-3 px-4 rounded-xl shadow-sm transition-all text-center">
+                      إلغاء التعديل
+                    </button>
+                  )}
+                  <button type="submit" className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5">
+                    <UserPlus className="w-4 h-4" />
+                    <span>{editingUser.id ? "حفظ التعديلات" : "إضافة مستخدم جديد"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <div className="md:col-span-7 bg-white rounded-3xl border border-slate-100 p-6 flex flex-col max-h-[600px]">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-md font-display font-semibold text-slate-800 flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-500" />
+                  قائمة المستخدمين للنظام
+                </h3>
+                <span className="bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg text-xs font-bold border border-indigo-100">
+                  {users.length} مستخدم
+                </span>
+              </div>
+              <div className="overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                {users.map(u => (
+                  <div key={u.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex justify-between items-center group hover:border-slate-200 transition-colors">
+                    <div className="text-right">
+                      <div className="font-bold text-slate-900 text-sm mb-1">{u.fullName}</div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
+                        <span>@{u.username}</span>
+                        <span className="text-slate-300">|</span>
+                        <span>{u.password}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-bold ${
+                        u.role === 'admin' ? 'bg-red-50 text-red-600 border border-red-100' :
+                        u.role === 'manager' ? 'bg-purple-50 text-purple-600 border border-purple-100' :
+                        u.role === 'super' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                        'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                      }`}>
+                        {u.role.toUpperCase()}
+                      </span>
+                      {u.id !== currentUser?.id && (
+                        <div className="flex items-center gap-1">
+                          <button 
+                            onClick={() => setEditingUser(u)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="تعديل صلاحيات المستخدم"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={async () => {
+                              setDialogConfirm({
+                                isOpen: true,
+                                title: "تأكيد الحذف",
+                                message: "هل أنت متأكد من حذف هذا المستخدم؟",
+                                theme: "rose",
+                                confirmText: "حذف المستخدم",
+                                cancelText: "إلغاء",
+                                onConfirm: async () => {
+                                  try {
+                                    const { deleteUserFromCloud } = await import("../lib/firebase");
+                                    await deleteUserFromCloud(u.id);
+                                    setDialogAlert({ isOpen: true, title: "نجاح", message: "تم حذف المستخدم بنجاح.", type: "success" });
+                                  } catch (err) {
+                                    setDialogAlert({ isOpen: true, title: "خطأ", message: "حدث خطأ أثناء الحذف.", type: "error" });
+                                  }
+                                }
+                              });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="حذف المستخدم"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB A: UPLOAD SHEET OR PASTING */}
         {adminTab === "upload" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2468,37 +3249,65 @@ export default function AdminPanel({
 
               {/* Sub-toggle buttons */}
               <div className="flex gap-2 p-1 bg-slate-100/80 border border-slate-100/60 rounded-xl" id="upload-mode-selector">
-                <button
-                  type="button"
-                  onClick={() => { setUploadMode("nps"); setPasteError(""); setPasteSuccess(""); }}
-                  className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
-                    uploadMode === "nps" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  🌟 شيت الـ NPS الشهري
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setUploadMode("kpi"); setPasteError(""); setPasteSuccess(""); }}
-                  className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
-                    uploadMode === "kpi" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  📈 شيت الـ KPI الشهري
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setUploadMode("employees"); setPasteError(""); setPasteSuccess(""); }}
-                  className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
-                    uploadMode === "employees" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
-                  }`}
-                >
-                  👥 شيت الموظفين
-                </button>
+                {hasAdminPermission("admin_upload_nps") && (
+                  <button
+                    type="button"
+                    onClick={() => { setUploadMode("nps"); setPasteError(""); setPasteSuccess(""); }}
+                    className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
+                      uploadMode === "nps" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    🌟 شيت الـ NPS الشهري
+                  </button>
+                )}
+                {hasAdminPermission("admin_upload_kpi") && (
+                  <button
+                    type="button"
+                    onClick={() => { setUploadMode("kpi"); setPasteError(""); setPasteSuccess(""); }}
+                    className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
+                      uploadMode === "kpi" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    📈 شيت الـ KPI الشهري
+                  </button>
+                )}
+                {hasAdminPermission("admin_employees") && (
+                  <button
+                    type="button"
+                    onClick={() => { setUploadMode("employees"); setPasteError(""); setPasteSuccess(""); }}
+                    className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
+                      uploadMode === "employees" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    👥 شيت الموظفين
+                  </button>
+                )}
+                {hasAdminPermission("admin_upload_weekly") && (
+                  <button
+                    type="button"
+                    onClick={() => { setUploadMode("weekly"); setPasteError(""); setPasteSuccess(""); }}
+                    className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
+                      uploadMode === "weekly" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    📅 الأداء الأسبوعي
+                  </button>
+                )}
+                {hasAdminPermission("admin_upload_leaders") && (
+                  <button
+                    type="button"
+                    onClick={() => { setUploadMode("leaders"); setPasteError(""); setPasteSuccess(""); }}
+                    className={`flex-1 py-2 rounded-lg text-[10px] sm:text-xs font-semibold transition-all ${
+                      uploadMode === "leaders" ? "bg-slate-900 text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    👑 تقييم التيم ليدر
+                  </button>
+                )}
               </div>
 
               {/* Conditional settings for each mode */}
-              {uploadMode === "employees" && (
+              {uploadMode === "employees" && hasAdminPermission("admin_employees") && (
                 <div className="space-y-4 text-right">
                   {pendingEmpRows ? (
                     <div className="space-y-4 text-right bg-slate-50 p-5 rounded-2xl border border-indigo-100 shadow-sm animate-fade-in" dir="rtl">
@@ -2630,7 +3439,7 @@ export default function AdminPanel({
                             onChange={(e) => setEmpMapping({ ...empMapping, lobIdx: parseInt(e.target.value) })}
                             className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
                           >
-                            <option value={-1}>الافتراضي (Chat / ADSL)</option>
+                            <option value={-1}>الافتراضي ({lobOptions[0] || "Chat / ADSL"})</option>
                             {detectedEmpHeaders.map((hdr, idx) => (
                               <option key={idx} value={idx}>{hdr}</option>
                             ))}
@@ -2675,10 +3484,11 @@ export default function AdminPanel({
 
                       <button
                         onClick={confirmPendingEmployees}
-                        className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                        disabled={isProcessing}
+                        className={`w-full text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${isProcessing ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'}`}
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>تأكيد استيراد وحفظ الموظفين بموجب التوجيه الجديد</span>
+                        <span>{isProcessing ? "جاري الاستيراد والحفظ..." : "تأكيد استيراد وحفظ الموظفين بموجب التوجيه الجديد"}</span>
                       </button>
                     </div>
                   ) : (
@@ -2756,7 +3566,7 @@ export default function AdminPanel({
                 </div>
               )}
 
-              {uploadMode === "kpi" && (
+              {uploadMode === "kpi" && hasAdminPermission("admin_upload_kpi") && (
                 <div className="space-y-4 text-right">
                   {pendingKpiRows ? (
                     <div className="space-y-4 text-right bg-slate-50 p-5 rounded-2xl border border-indigo-105 shadow-sm animate-fade-in" dir="rtl">
@@ -3029,10 +3839,11 @@ export default function AdminPanel({
 
                       <button
                         onClick={confirmPendingKpi}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                        disabled={isProcessing}
+                        className={`w-full text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${isProcessing ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                       >
                         <Check className="w-4 h-4" />
-                        <span>تأكيد استيراد وحفظ البيانات بموجب التوجيه الجديد</span>
+                        <span>{isProcessing ? "جاري الاستيراد والحفظ..." : "تأكيد استيراد وحفظ البيانات بموجب التوجيه الجديد"}</span>
                       </button>
                     </div>
                   ) : (
@@ -3040,29 +3851,10 @@ export default function AdminPanel({
                       <div className="bg-indigo-50/70 border border-indigo-100/50 p-3 rounded-2xl flex flex-col gap-2">
                         <div>
                           <label className="text-indigo-950 text-xs font-bold block mb-1">حدد الشهر الذي ينتمي إليه شيت الـ KPI:</label>
-                          <select
+                          <MonthYearSelector
                             value={pasteKpiMonth}
-                            onChange={(e) => setPasteKpiMonth(e.target.value)}
-                            className="w-full bg-white border border-indigo-100 px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-700"
-                          >
-                            <option value="Jan-25">Jan-25</option>
-                            <option value="Feb-25">Feb-25</option>
-                            <option value="Mar-25">Mar-25</option>
-                            <option value="Apr-25">Apr-25</option>
-                            <option value="May-25">May-25</option>
-                            <option value="Jun-25">Jun-25</option>
-                            <option value="Jul-25">Jul-25</option>
-                            <option value="Aug-25">Aug-25</option>
-                            <option value="Sep-25">Sep-25</option>
-                            <option value="Oct-25">Oct-25</option>
-                            <option value="Nov-25">Nov-25</option>
-                            <option value="Dec-25">Dec-25</option>
-                            <option value="Jan-26">Jan-26</option>
-                            <option value="Feb-26">Feb-26</option>
-                            <option value="Mar-26">Mar-26</option>
-                            <option value="Apr-26">Apr-26</option>
-                            <option value="May-26">May-26</option>
-                          </select>
+                            onChange={(val) => setPasteKpiMonth(val)}
+                          />
                         </div>
 
                         <p className="text-[10px] text-indigo-700 leading-relaxed font-medium">
@@ -3135,7 +3927,374 @@ export default function AdminPanel({
                 </div>
               )}
 
-              {uploadMode === "nps" && (
+              {uploadMode === "weekly" && hasAdminPermission("admin_upload_weekly") && (
+                <div className="space-y-4 text-right">
+                  {pendingWeeklyRows ? (
+                    <div className="space-y-4 text-right bg-slate-50 p-5 rounded-2xl border border-indigo-105 shadow-sm animate-fade-in" dir="rtl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-slate-850 flex items-center gap-2">
+                          <Settings className="w-5 h-5 text-indigo-500 animate-spin" style={{ animationDuration: '6s' }} />
+                          تعديل مطابقة أعمدة الأداء الأسبوعي لشهر {pasteWeeklyMonth}
+                        </h4>
+                        <button 
+                          onClick={() => setPendingWeeklyRows(null)}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 transition-all"
+                        >
+                          إلغاء واستيراد آخر ✗
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        يرجى مراجعة وتأكيد مطابقة الأعمدة التالية. إذا كان هنالك خطأ، اختر العمود الصحيح من القائمة المنسدلة:
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-4 max-h-96 overflow-y-auto p-4 bg-white rounded-xl border border-slate-100">
+                        {/* ID and Name Mapping */}
+                        <div className="col-span-2 grid grid-cols-2 gap-4 mb-2 pb-4 border-b border-slate-100">
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-indigo-700 block">كود الموظف (ID)</span>
+                            <select
+                              value={weeklyMapping.idIdx}
+                              onChange={(e) => setWeeklyMapping({ ...weeklyMapping, idIdx: parseInt(e.target.value) })}
+                              className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                            >
+                              <option value={-1}>استبعاد</option>
+                              {detectedHeaders.map((hdr, idx) => (
+                                <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-bold text-indigo-700 block">اسم الموظف</span>
+                            <select
+                              value={weeklyMapping.nameIdx}
+                              onChange={(e) => setWeeklyMapping({ ...weeklyMapping, nameIdx: parseInt(e.target.value) })}
+                              className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                            >
+                              <option value={-1}>استبعاد</option>
+                              {detectedHeaders.map((hdr, idx) => (
+                                <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Weeks mapping */}
+                        {[1, 2, 3, 4].map(weekNum => {
+                          const wIdx = weekNum - 1;
+                          return (
+                            <div key={weekNum} className="col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-100 space-y-2">
+                              <h5 className="text-xs font-bold text-slate-800">الأسبوع {weekNum}</h5>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-600 block">Answered</span>
+                                  <select
+                                    value={weeklyMapping.weeks[wIdx].answeredIdx}
+                                    onChange={(e) => {
+                                      const newMap = { ...weeklyMapping };
+                                      newMap.weeks[wIdx].answeredIdx = parseInt(e.target.value);
+                                      setWeeklyMapping(newMap);
+                                    }}
+                                    className="w-full bg-white px-2 py-1 rounded border border-slate-200 text-[10px] font-medium"
+                                  >
+                                    <option value={-1}>-</option>
+                                    {detectedHeaders.map((hdr, idx) => <option key={idx} value={idx}>{hdr || `col ${idx + 1}`}</option>)}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-600 block">AHT</span>
+                                  <select
+                                    value={weeklyMapping.weeks[wIdx].ahtIdx}
+                                    onChange={(e) => {
+                                      const newMap = { ...weeklyMapping };
+                                      newMap.weeks[wIdx].ahtIdx = parseInt(e.target.value);
+                                      setWeeklyMapping(newMap);
+                                    }}
+                                    className="w-full bg-white px-2 py-1 rounded border border-slate-200 text-[10px] font-medium"
+                                  >
+                                    <option value={-1}>-</option>
+                                    {detectedHeaders.map((hdr, idx) => <option key={idx} value={idx}>{hdr || `col ${idx + 1}`}</option>)}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-600 block">TNPS</span>
+                                  <select
+                                    value={weeklyMapping.weeks[wIdx].tnpsIdx}
+                                    onChange={(e) => {
+                                      const newMap = { ...weeklyMapping };
+                                      newMap.weeks[wIdx].tnpsIdx = parseInt(e.target.value);
+                                      setWeeklyMapping(newMap);
+                                    }}
+                                    className="w-full bg-white px-2 py-1 rounded border border-slate-200 text-[10px] font-medium"
+                                  >
+                                    <option value={-1}>-</option>
+                                    {detectedHeaders.map((hdr, idx) => <option key={idx} value={idx}>{hdr || `col ${idx + 1}`}</option>)}
+                                  </select>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[10px] font-bold text-slate-600 block">FCR</span>
+                                  <select
+                                    value={weeklyMapping.weeks[wIdx].fcrIdx}
+                                    onChange={(e) => {
+                                      const newMap = { ...weeklyMapping };
+                                      newMap.weeks[wIdx].fcrIdx = parseInt(e.target.value);
+                                      setWeeklyMapping(newMap);
+                                    }}
+                                    className="w-full bg-white px-2 py-1 rounded border border-slate-200 text-[10px] font-medium"
+                                  >
+                                    <option value={-1}>-</option>
+                                    {detectedHeaders.map((hdr, idx) => <option key={idx} value={idx}>{hdr || `col ${idx + 1}`}</option>)}
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          onClick={handleConfirmWeeklyUpload}
+                          disabled={isProcessing}
+                          className={`w-full text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${isProcessing ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-900 hover:bg-slate-800'}`}
+                        >
+                          <Upload className="w-4 h-4" />
+                          <span>{isProcessing ? "جاري الرفع والسحب..." : `تأكيد والرفع لشهر ${pasteWeeklyMonth}`}</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex flex-col gap-4">
+                        <div className="bg-amber-50/70 border border-amber-100/50 p-3 rounded-2xl">
+                          <span className="text-xs text-amber-800 font-bold block mb-1">📅 رفع الأداء الأسبوعي:</span>
+                          <p className="text-[10px] text-amber-700 leading-relaxed font-medium">
+                            ألصق شيت التقييم الأسبوعي. سيتولى النظام التقاط بيانات كل أسبوع (من الأول للرابع) وربطها بالموظفين بشكل تلقائي.
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between gap-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                          <div className="space-y-1">
+                            <span className="text-xs font-bold text-slate-700 block">اختر شهر التقييم:</span>
+                            <p className="text-[10px] text-slate-500">سيتم حفظ البيانات تحت هذا الشهر.</p>
+                          </div>
+                          <MonthYearSelector
+                            value={pasteWeeklyMonth}
+                            onChange={(val) => setPasteWeeklyMonth(val)}
+                            className="w-auto"
+                          />
+                        </div>
+
+                        <div className="border border-slate-100 p-4 rounded-2xl bg-white/50 space-y-3">
+                          <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider block mb-1">الخيار الأول: رفع ملف (Excel/CSV)</span>
+                          <div className="border-2 border-dashed border-indigo-100 hover:border-indigo-300 bg-indigo-50/10 p-6 rounded-2xl flex flex-col items-center cursor-pointer transition-all relative group">
+                            <input 
+                              type="file" 
+                              onChange={handleFileUpload} 
+                              accept=".xlsx,.xls,.csv,.tsv,.txt" 
+                              className="absolute inset-0 opacity-0 cursor-pointer" 
+                            />
+                            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                              <FileSpreadsheet className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <p className="text-xs font-bold text-slate-700 mt-2">اسحب وأفلت الملف هنا أو اضغط للاختيار</p>
+                          </div>
+                        </div>
+
+                        <div className="border border-slate-100 p-4 rounded-2xl bg-white/50 space-y-3">
+                          <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider block mb-1">الخيار الثاني: نسخ ولصق الخلايا</span>
+                          <div>
+                            <textarea
+                              value={pasteWeeklyText}
+                              onChange={(e) => setPasteWeeklyText(e.target.value)}
+                              placeholder="ألصق جدول الأداء الأسبوعي هنا..."
+                              className="w-full h-32 p-4 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-400 font-mono text-left"
+                              dir="ltr"
+                            />
+                          </div>
+                          <button
+                            onClick={handleUploadWeekly}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>تأكيد والرفع لشهر {pasteWeeklyMonth}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {pasteError && (
+                    <div className="p-3 bg-rose-50 text-rose-600 rounded-xl text-xs flex items-center gap-1.5 font-semibold">
+                      <AlertCircle className="w-4.5 h-4.5" />
+                      <span>{pasteError}</span>
+                    </div>
+                  )}
+
+                  {pasteSuccess && (
+                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 className="w-4.5 h-4.5" />
+                      <span>{pasteSuccess}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {uploadMode === "leaders" && hasAdminPermission("admin_upload_leaders") && (
+                <div className="space-y-4 text-right">
+                  {pendingLeadersRows ? (
+                    <div className="space-y-4 text-right bg-slate-50 p-5 rounded-2xl border border-indigo-105 shadow-sm animate-fade-in" dir="rtl">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-slate-850 flex items-center gap-2">
+                          <Settings className="w-5 h-5 text-indigo-500 animate-spin" style={{ animationDuration: '6s' }} />
+                          تعديل مطابقة أعمدة التيم ليدر لشهر {pasteLeadersMonth}
+                        </h4>
+                        <button 
+                          onClick={() => setPendingLeadersRows(null)}
+                          className="text-xs font-semibold text-rose-500 hover:text-rose-600 transition-all"
+                        >
+                          إلغاء واستيراد آخر ✗
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        يرجى مراجعة وتأكيد مطابقة الأعمدة التالية. إذا كان هنالك خطأ، اختر العمود الصحيح من القائمة المنسدلة:
+                      </p>
+                      
+                      <div className="grid grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-slate-100">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">كود الموظف (ID)</span>
+                          <select
+                            value={leadersMapping.idIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, idIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">اسم التيم ليدر</span>
+                          <select
+                            value={leadersMapping.nameIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, nameIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">نسبة CTC</span>
+                          <select
+                            value={leadersMapping.ctcIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, ctcIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">نسبة CTB</span>
+                          <select
+                            value={leadersMapping.ctbIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, ctbIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-bold text-indigo-700 block">التقييم النهائي (Final Score)</span>
+                          <select
+                            value={leadersMapping.finalScoreIdx}
+                            onChange={(e) => setLeadersMapping({ ...leadersMapping, finalScoreIdx: parseInt(e.target.value) })}
+                            className="w-full bg-slate-50 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium"
+                          >
+                            <option value={-1}>استبعاد</option>
+                            {detectedLeadersHeaders.map((hdr, idx) => (
+                              <option key={idx} value={idx}>{hdr || `العمود ${idx + 1}`}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={confirmPendingLeaders}
+                        disabled={isProcessing}
+                        className={`w-full text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${isProcessing ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                      >
+                        <Check className="w-4 h-4" />
+                        <span>{isProcessing ? "جاري الاعتماد..." : `تأكيد اعتماد بيانات التيم ليدر لشهر ${pendingLeadersMonth}`}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 gap-6">
+                        <div className="bg-indigo-50/70 border border-indigo-100/50 p-3 rounded-2xl flex flex-col gap-2">
+                          <div>
+                            <label className="text-indigo-950 text-xs font-bold block mb-1">حدد الشهر الذي ينتمي إليه شيت التقييم:</label>
+                            <MonthYearSelector
+                              value={pasteLeadersMonth}
+                              onChange={(val) => setPasteLeadersMonth(val)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border border-slate-100 p-4 rounded-2xl bg-white/50 space-y-3">
+                          <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider block mb-1">الخيار الأول: رفع شيت Excel / CSV</span>
+                          <div className="relative border-2 border-dashed border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 rounded-xl p-8 text-center transition-all group overflow-hidden">
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls,.csv,.txt"
+                              onChange={handleFileUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            <div className="space-y-2 pointer-events-none">
+                              <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto text-indigo-500 group-hover:scale-110 transition-transform">
+                                <Upload className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-700">اسحب الملف وأفلته هنا، أو انقر للاستعراض</p>
+                                <p className="text-[10px] text-slate-400 mt-1">صيغ .xlsx, .xls, .csv, .txt مدعومة</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border border-slate-100 p-4 rounded-2xl bg-white/50 space-y-3">
+                          <span className="text-[11px] font-bold text-indigo-950 uppercase tracking-wider block mb-1">الخيار الثاني: نسخ ولصق الخلايا</span>
+                          <div>
+                            <textarea
+                              value={pasteLeadersText}
+                              onChange={(e) => setPasteLeadersText(e.target.value)}
+                              placeholder="ألصق جدول تقييم الليدر هنا..."
+                              className="w-full h-32 p-4 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder-slate-400 font-mono text-left"
+                              dir="ltr"
+                            />
+                          </div>
+                          <button
+                            onClick={handleUploadLeaders}
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Upload className="w-4 h-4" />
+                            <span>تأكيد الرفع لشهر {pasteLeadersMonth}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {uploadMode === "nps" && hasAdminPermission("admin_upload_nps") && (
                 <div className="space-y-4 text-right">
                   {pendingNpsRows ? (
                     <div className="space-y-4 text-right bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 shadow-sm animate-fade-in" dir="rtl">
@@ -3216,10 +4375,11 @@ export default function AdminPanel({
                       <div className="pt-2">
                         <button
                           onClick={confirmPendingNps}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                          disabled={isProcessing}
+                          className={`w-full text-white text-xs font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 ${isProcessing ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>تأكيد اعتماد بيانات NPS لشهر {pendingNpsMonth}</span>
+                          <span>{isProcessing ? "جاري الاعتماد..." : `تأكيد اعتماد بيانات NPS لشهر ${pendingNpsMonth}`}</span>
                         </button>
                       </div>
                     </div>
@@ -3228,29 +4388,10 @@ export default function AdminPanel({
                       <div className="bg-emerald-50/70 border border-emerald-100/50 p-3 rounded-2xl flex flex-col gap-2">
                         <div>
                           <label className="text-emerald-950 text-xs font-bold block mb-1">حدد الشهر الذي ينتمي إليه شيت الـ NPS:</label>
-                          <select
+                          <MonthYearSelector
                             value={pasteNpsMonth}
-                            onChange={(e) => setPasteNpsMonth(e.target.value)}
-                            className="w-full bg-white border border-emerald-100 px-3 py-2 rounded-xl text-xs font-mono font-bold text-slate-700"
-                          >
-                            <option value="Jan-25">Jan-25</option>
-                            <option value="Feb-25">Feb-25</option>
-                            <option value="Mar-25">Mar-25</option>
-                            <option value="Apr-25">Apr-25</option>
-                            <option value="May-25">May-25</option>
-                            <option value="Jun-25">Jun-25</option>
-                            <option value="Jul-25">Jul-25</option>
-                            <option value="Aug-25">Aug-25</option>
-                            <option value="Sep-25">Sep-25</option>
-                            <option value="Oct-25">Oct-25</option>
-                            <option value="Nov-25">Nov-25</option>
-                            <option value="Dec-25">Dec-25</option>
-                            <option value="Jan-26">Jan-26</option>
-                            <option value="Feb-26">Feb-26</option>
-                            <option value="Mar-26">Mar-26</option>
-                            <option value="Apr-26">Apr-26</option>
-                            <option value="May-26">May-26</option>
-                          </select>
+                            onChange={(val) => setPasteNpsMonth(val)}
+                          />
                         </div>
                       </div>
 
@@ -3357,29 +4498,10 @@ export default function AdminPanel({
 
                   <div>
                     <label className="text-slate-400 text-[10px] block mb-1">الشهر المراد رصده:</label>
-                    <select
+                    <MonthYearSelector
                       value={manualKpi.month}
-                      onChange={(e) => setManualKpi({ ...manualKpi, month: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-xs font-mono"
-                    >
-                      <option value="Jan-25">Jan-25</option>
-                      <option value="Feb-25">Feb-25</option>
-                      <option value="Mar-25">Mar-25</option>
-                      <option value="Apr-25">Apr-25</option>
-                      <option value="May-25">May-25</option>
-                      <option value="Jun-25">Jun-25</option>
-                      <option value="Jul-25">Jul-25</option>
-                      <option value="Aug-25">Aug-25</option>
-                      <option value="Sep-25">Sep-25</option>
-                      <option value="Oct-25">Oct-25</option>
-                      <option value="Nov-25">Nov-25</option>
-                      <option value="Dec-25">Dec-25</option>
-                      <option value="Jan-26">Jan-26</option>
-                      <option value="Feb-26">Feb-26</option>
-                      <option value="Mar-26">Mar-26</option>
-                      <option value="Apr-26">Apr-26</option>
-                      <option value="May-26">May-26</option>
-                    </select>
+                      onChange={(val) => setManualKpi({ ...manualKpi, month: val })}
+                    />
                   </div>
                 </div>
 
@@ -3606,10 +4728,9 @@ export default function AdminPanel({
                             onChange={(e) => setNewEmp({ ...newEmp, lob: e.target.value })}
                             className="w-full bg-slate-50 border border-slate-100 px-3 py-2 rounded-xl text-xs"
                           >
-                            <option value="Chat / ADSL">Chat / ADSL</option>
-                            <option value="Chat / Mobile">Chat / Mobile</option>
-                            <option value="VOICE / FTTH">VOICE / FTTH</option>
-                            <option value="Universal">Universal</option>
+                            {lobOptions.map(opt => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
                           </select>
                         </div>
                         <div>
@@ -3678,7 +4799,7 @@ export default function AdminPanel({
                               mobileNumber: "",
                               nationalId: "",
                               location: "WFH",
-                              lob: "Chat / ADSL",
+                              lob: lobOptions[0] || "Chat / ADSL",
                             })}
                             className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
                             title="تفريغ الحقول"
@@ -3737,8 +4858,43 @@ export default function AdminPanel({
                     }`}
                   >
                     <Archive className="w-4 h-4" />
-                    {showArchived ? "إخفاء الموظفين المؤرشفين" : "عرض الموظفين المؤرشفين"}
+                    {showArchived ? "إخفاء المؤرشفين" : "عرض المؤرشفين"}
                   </button>
+                  {empSearchQuery && filteredEmployees.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setDialogConfirm({
+                          isOpen: true,
+                          title: "تأكيد الحذف الجماعي",
+                          message: `هل أنت متأكد من حذف ${filteredEmployees.length} موظف(ين) مطابقين للبحث بشكل نهائي؟ لا يمكن التراجع عن هذه الخطوة.`,
+                          theme: "rose",
+                          confirmText: "حذف نتائج الفلتر",
+                          cancelText: "إلغاء",
+                          onConfirm: async () => {
+                            try {
+                              const { deleteEmployeesBatch } = await import("../lib/firebase");
+                              const idsToDelete = filteredEmployees.map(e => e.id);
+                              await deleteEmployeesBatch(idsToDelete);
+                              const updated = employees.filter(e => !idsToDelete.includes(e.id));
+                              await onUpdateEmployees(updated);
+                              setEmpSuccess(`تم حذف المجموعة بنجاح (${idsToDelete.length} موظف).`);
+                              setEmpSearchQuery("");
+                              setTimeout(() => setEmpSuccess(""), 4000);
+                            } catch (err) {
+                              setEmpError("حدث خطأ أثناء الحذف الجماعي.");
+                              setTimeout(() => setEmpError(""), 4000);
+                            }
+                          }
+                        });
+                      }}
+                      className="px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border bg-red-50 text-red-600 border-red-200 hover:bg-red-100 flex items-center justify-center gap-2 shrink-0"
+                      title="حذف المجموعة المحددة بناءً على الفلتر"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      حذف نتائج الفلتر ({filteredEmployees.length})
+                    </button>
+                  )}
                 </div>
 
                 {/* Vertical list of employees */}
@@ -3863,7 +5019,8 @@ export default function AdminPanel({
                   {[
                     { id: "dashboard", label: "التقييم الفردي" },
                     { id: "analytics", label: "تقارير تشغيل الفرق" },
-                    { id: "weekly", label: "الأداء الأسبوعي" }
+                    { id: "weekly", label: "الأداء الأسبوعي" },
+                    { id: "leaders", label: "تقييم التيم ليدر" }
                   ].map(page => {
                     const isMaintenance = maintenancePages.includes(page.id);
                     return (
@@ -4125,7 +5282,7 @@ export default function AdminPanel({
           </div>
         )}
         
-        {adminTab === "data" && (
+        {adminTab === "data" && currentUser?.role === "admin" && (
           <div className="space-y-6">
             {/* System Status and DB Options */}
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
@@ -4279,6 +5436,69 @@ export default function AdminPanel({
               </div>
             </div>
             
+            {/* LOB Management Options */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
+              <h3 className="text-md font-display font-semibold text-slate-800 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-indigo-500" />
+                إدارة أنواع الخدمات (LOB)
+              </h3>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                أنواع الخدمات المتاحة حالياً عند تعيين أو تحديث بيانات موظف.
+              </p>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {lobOptions.map((lob) => (
+                  <div key={lob} className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                    {lob}
+                    {lobOptions.length > 1 && (
+                      <button 
+                        onClick={() => {
+                          setDialogConfirm({
+                            isOpen: true,
+                            title: "حذف تصنيف LOB",
+                            message: `هل أنت متأكد من حذف نوع الخدمة "${lob}"؟`,
+                            theme: "rose",
+                            confirmText: "نعم، حذف",
+                            cancelText: "إلغاء",
+                            onConfirm: () => {
+                              const newList = lobOptions.filter(l => l !== lob);
+                              onUpdateLobOptions(newList);
+                              setDialogConfirm(prev => ({ ...prev, isOpen: false }));
+                            }
+                          });
+                        }}
+                        className="text-indigo-400 hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const form = e.currentTarget;
+                const input = form.elements.namedItem("newLob") as HTMLInputElement;
+                const val = input.value.trim();
+                if (val && !lobOptions.includes(val)) {
+                  onUpdateLobOptions([...lobOptions, val]);
+                  input.value = "";
+                }
+              }} className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  name="newLob"
+                  placeholder="إضافة نوع خدمة جديد (مثال: VDSL)" 
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1">
+                  <Plus className="w-4 h-4" />
+                  إضافة
+                </button>
+              </form>
+            </div>
+
           </div>
         )}
       </div>
@@ -4305,9 +5525,9 @@ export default function AdminPanel({
             <div className="flex gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={async () => {
+                onClick={() => {
                   if (dialogConfirm.onConfirm) {
-                    await dialogConfirm.onConfirm();
+                    dialogConfirm.onConfirm();
                   }
                   setDialogConfirm(prev => ({ ...prev, isOpen: false }));
                 }}
@@ -4419,29 +5639,10 @@ export default function AdminPanel({
                   <span className="text-xs font-bold text-slate-800">حذف مؤشرات <b>KPI</b> لشهر محدد:</span>
                 </label>
                 {resetDialogState.mode === "kpi_month" && (
-                  <select
+                  <MonthYearSelector
                     value={resetDialogState.selectedMonth}
-                    onChange={(e) => setResetDialogState(prev => ({ ...prev, selectedMonth: e.target.value }))}
-                    className="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg text-xs font-mono font-bold text-slate-700 mt-1"
-                  >
-                        <option value="Jan-25">Jan-25</option>
-                        <option value="Feb-25">Feb-25</option>
-                        <option value="Mar-25">Mar-25</option>
-                        <option value="Apr-25">Apr-25</option>
-                        <option value="May-25">May-25</option>
-                        <option value="Jun-25">Jun-25</option>
-                        <option value="Jul-25">Jul-25</option>
-                        <option value="Aug-25">Aug-25</option>
-                        <option value="Sep-25">Sep-25</option>
-                        <option value="Oct-25">Oct-25</option>
-                        <option value="Nov-25">Nov-25</option>
-                        <option value="Dec-25">Dec-25</option>
-                        <option value="Jan-26">Jan-26</option>
-                        <option value="Feb-26">Feb-26</option>
-                        <option value="Mar-26">Mar-26</option>
-                        <option value="Apr-26">Apr-26</option>
-                        <option value="May-26">May-26</option>
-                  </select>
+                    onChange={(val) => setResetDialogState(prev => ({ ...prev, selectedMonth: val }))}
+                  />
                 )}
               </div>
 
@@ -4457,31 +5658,42 @@ export default function AdminPanel({
                   <span className="text-xs font-bold text-slate-800">حذف استطلاعات <b>NPS</b> لشهر محدد:</span>
                 </label>
                 {resetDialogState.mode === "nps_month" && (
-                  <select
+                  <MonthYearSelector
                     value={resetDialogState.selectedMonth}
-                    onChange={(e) => setResetDialogState(prev => ({ ...prev, selectedMonth: e.target.value }))}
-                    className="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg text-xs font-mono font-bold text-slate-700 mt-1"
-                  >
-                        <option value="Jan-25">Jan-25</option>
-                        <option value="Feb-25">Feb-25</option>
-                        <option value="Mar-25">Mar-25</option>
-                        <option value="Apr-25">Apr-25</option>
-                        <option value="May-25">May-25</option>
-                        <option value="Jun-25">Jun-25</option>
-                        <option value="Jul-25">Jul-25</option>
-                        <option value="Aug-25">Aug-25</option>
-                        <option value="Sep-25">Sep-25</option>
-                        <option value="Oct-25">Oct-25</option>
-                        <option value="Nov-25">Nov-25</option>
-                        <option value="Dec-25">Dec-25</option>
-                        <option value="Jan-26">Jan-26</option>
-                        <option value="Feb-26">Feb-26</option>
-                        <option value="Mar-26">Mar-26</option>
-                        <option value="Apr-26">Apr-26</option>
-                        <option value="May-26">May-26</option>
-                  </select>
+                    onChange={(val) => setResetDialogState(prev => ({ ...prev, selectedMonth: val }))}
+                  />
                 )}
               </div>
+
+              <div className={`p-3 rounded-xl border transition-colors ${resetDialogState.mode === "weekly_month" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                  <input 
+                    type="radio" 
+                    name="reset_mode" 
+                    checked={resetDialogState.mode === "weekly_month"}
+                    onChange={() => setResetDialogState(prev => ({ ...prev, mode: "weekly_month" }))}
+                    className="w-4 h-4 text-indigo-600"
+                  />
+                  <span className="text-xs font-bold text-slate-800">حذف الأداء <b>الأسبوعي</b> لشهر محدد:</span>
+                </label>
+                {resetDialogState.mode === "weekly_month" && (
+                  <MonthYearSelector
+                    value={resetDialogState.selectedMonth}
+                    onChange={(val) => setResetDialogState(prev => ({ ...prev, selectedMonth: val }))}
+                  />
+                )}
+              </div>
+
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${resetDialogState.mode === "weekly_all" ? "bg-indigo-50 border-indigo-200" : "bg-white border-slate-200 hover:bg-slate-50"}`}>
+                <input 
+                  type="radio" 
+                  name="reset_mode" 
+                  checked={resetDialogState.mode === "weekly_all"}
+                  onChange={() => setResetDialogState(prev => ({ ...prev, mode: "weekly_all" }))}
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-xs font-bold text-slate-800">حذف الأداء الأسبوعي <b>لجميع</b> الشهور</span>
+              </label>
             </div>
 
             <div className="flex gap-2.5 pt-4">
