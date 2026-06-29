@@ -16,8 +16,9 @@ import MaintenancePage from "./components/MaintenancePage";
 import NotificationsPopover from "./components/NotificationsPopover";
 import { motion, AnimatePresence } from "motion/react";
 import { 
-  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar, Users, Bell
+  TrendingUp, BarChart3, Database, Clock, ShieldAlert, Sparkles, LucideIcon, Wifi, LayoutDashboard, Sun, Moon, Megaphone, LogOut, X, Calendar, Users, Bell, Globe
 } from "lucide-react";
+import { useLanguage } from "./lib/LanguageContext";
 import { 
   seedDatabaseIfEmpty, 
   subscribeToConfig, 
@@ -34,6 +35,7 @@ import {
 import { onSnapshot, doc } from "firebase/firestore";
 
 function FirebaseConnectionStatus() {
+  const { t, isRtl } = useLanguage();
   const [isConnected, setIsConnected] = useState(navigator.onLine);
 
   useEffect(() => {
@@ -61,21 +63,22 @@ function FirebaseConnectionStatus() {
   }, []);
 
   return (
-    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
       isConnected 
         ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
         : "bg-rose-50 text-rose-700 border-rose-100"
-    }`} dir="rtl">
-      <div className="relative flex h-2 w-2">
+    }`} dir={isRtl ? "rtl" : "ltr"}>
+      <div className="relative flex h-2 w-2 shrink-0">
         {isConnected && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
         <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? "bg-emerald-500" : "bg-rose-500"}`}></span>
       </div>
-      <span>سيرفر Firebase {isConnected ? "متصل" : "غير متصل"}</span>
+      <span className="whitespace-nowrap">{isConnected ? t("قاعدة البيانات متصلة") : t("غير متصل")}</span>
     </div>
   );
 }
 
 function OnlineUsersCounter() {
+  const { t, isRtl } = useLanguage();
   const [onlineCount, setOnlineCount] = useState<number>(1);
 
   useEffect(() => {
@@ -109,13 +112,13 @@ function OnlineUsersCounter() {
   }, []);
 
   return (
-    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-xs font-semibold" dir="rtl">
-      <div className="relative flex h-2 w-2">
+    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-100 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0" dir={isRtl ? "rtl" : "ltr"}>
+      <div className="relative flex h-2 w-2 shrink-0">
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
       </div>
-      <span className="flex items-center gap-1 text-slate-600">
-        متواجد الآن: 
+      <span className="flex items-center gap-1 text-slate-600 whitespace-nowrap">
+        {t("متواجد الآن")}: 
         <AnimatePresence mode="popLayout">
           <motion.span
             key={onlineCount}
@@ -134,6 +137,7 @@ function OnlineUsersCounter() {
 }
 
 export default function App() {
+  const { lang, setLang, t, isRtl } = useLanguage();
   // Authentication state
   const [userRole, setUserRole] = useState<"admin" | "manager" | "super" | "leader" | null>(null);
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(null);
@@ -355,12 +359,12 @@ export default function App() {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      setTime(now.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setTime(now.toLocaleTimeString(lang === "en" ? "en-US" : "ar-EG", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
     };
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [lang]);
 
   const hasPermission = (perm: string) => {
     if (userRole === "admin") return true;
@@ -402,7 +406,7 @@ export default function App() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 gap-4">
         <div className="w-12 h-12 border-4 border-we-pink/30 border-t-we-purple rounded-full animate-spin"></div>
-        <p className="text-slate-500 font-semibold text-sm" dir="rtl">جاري الاتصال بقاعدة بيانات وي (WE)...</p>
+        <p className="text-slate-500 font-semibold text-sm" dir={isRtl ? "rtl" : "ltr"}>{t("جاري الاتصال بقاعدة بيانات وي (WE)...")}</p>
       </div>
     );
   }
@@ -415,10 +419,10 @@ export default function App() {
       {/* Main Header */}
       <header className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-20" dir="ltr">
             
-            {/* Right Group: Title, Logo & Connection status */}
-            <div className="flex items-center gap-4 flex-row-reverse text-right" dir="rtl">
+            {/* Left Group (Branding): Title, Logo & Connection status */}
+            <div className="flex items-center gap-4 flex-row text-left" dir="ltr">
               {/* Refreshed WE 2026 Iconic Logo */}
               <div className="w-14 h-14 shrink-0 select-none drop-shadow-md">
                 <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -434,39 +438,49 @@ export default function App() {
               </div>
 
               <div>
-                <div className="flex items-center gap-1.5 flex-row-reverse">
-                  <h1 className="text-xl font-display font-black text-we-purple tracking-tight leading-none flex items-center gap-1 flex-row-reverse">
+                <div className="flex items-center gap-1.5 flex-row">
+                  <h1 className="text-xl font-display font-black text-we-purple tracking-tight leading-none flex items-center gap-1 flex-row">
                     <span>WE KPI Portal</span>
                     <span className="text-xs bg-we-pink/10 text-we-pink px-1.5 py-0.5 rounded-md font-mono font-bold">2026</span>
                   </h1>
                   <Sparkles className="w-4 h-4 text-we-pink" />
                 </div>
-                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 font-bold">
-                  بوابة تقييم الكفاءات والأداء الرقمي لقطاع الدعم الفني والدردشة - المصرية للاتصالات
+                <p className="text-slate-500 text-[10px] sm:text-xs mt-1 font-bold text-left">
+                  {t("بوابة تقييم الكفاءات والأداء الرقمي لقطاع الدعم الفني والدردشة - المصرية للاتصالات")}
                 </p>
               </div>
             </div>
 
-            {/* Left Group: Theme Toggle, Digital Cairo Clock & Online indicator */}
-            <div className="flex items-center gap-3 sm:gap-4 flex-row">
+            {/* Right Group (Controls): Theme Toggle, Language Switcher, Digital Cairo Clock & Online indicator */}
+            <div className="flex items-center gap-3 sm:gap-4 flex-row" dir="ltr">
               {/* Logout Button */}
               <button
                 onClick={() => setUserRole(null)}
                 className="p-2 sm:p-2.5 rounded-2xl bg-we-pink/10 hover:bg-we-pink/20 text-we-pink transition-all flex items-center justify-center cursor-pointer shadow-sm relative shrink-0"
-                title="تسجيل الخروج"
+                title={t("تسجيل الخروج")}
               >
                 <LogOut className="w-4.5 h-4.5 sm:w-5 h-5" />
               </button>
 
               {/* Notifications */}
               {currentUser && <NotificationsPopover currentUser={currentUser} />}
+
+              {/* Language Switcher */}
+              <button
+                onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+                className="px-3 py-2 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-100 hover:border-slate-200 text-slate-700 hover:text-we-purple font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm relative shrink-0 font-sans"
+                title={lang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
+              >
+                <Globe className="w-4 h-4 text-we-purple shrink-0" />
+                <span>{lang === "ar" ? "English" : "العربية"}</span>
+              </button>
               
               {/* Theme Toggle Button */}
               <button
                 onClick={() => setIsDarkMode(!isDarkMode)}
                 className="p-2 sm:p-2.5 rounded-2xl bg-slate-50 hover:bg-slate-100 border border-slate-100 hover:border-slate-200 text-slate-500 hover:text-we-purple transition-all flex items-center justify-center cursor-pointer shadow-sm relative shrink-0"
-                aria-label={isDarkMode ? "تفعيل الوضع النهاري" : "تفعيل الوضع الليلي"}
-                title={isDarkMode ? "تفعيل الوضع النهاري" : "تفعيل الوضع الليلي"}
+                aria-label={isDarkMode ? t("تفعيل الوضع النهاري") : t("تفعيل الوضع الليلي")}
+                title={isDarkMode ? t("تفعيل الوضع النهاري") : t("تفعيل الوضع الليلي")}
               >
                 {isDarkMode ? (
                   <motion.div
@@ -489,19 +503,19 @@ export default function App() {
                 )}
               </button>
 
-              <div className="hidden md:flex flex-col gap-1.5 items-end">
-                <div className="flex flex-row items-center justify-end gap-1.5">
-                  <div className="bg-slate-50 border border-slate-100/50 px-3 py-1.5 rounded-full flex items-center gap-1.5" dir="rtl">
-                    <Clock className="w-3.5 h-3.5 text-we-pink" />
-                    <span className="text-xs text-slate-400 font-medium">توقيت القاهرة:</span>
-                    <span className="text-xs font-mono font-bold text-we-purple">{time}</span>
+              <div className="hidden md:flex flex-col gap-1.5 shrink-0" dir={isRtl ? "rtl" : "ltr"}>
+                <div className="flex items-center gap-1.5 flex-nowrap">
+                  <div className="bg-slate-50 border border-slate-100/50 px-3 py-1.5 rounded-full flex items-center gap-1.5 whitespace-nowrap shrink-0">
+                    <Clock className="w-3.5 h-3.5 text-we-pink shrink-0" />
+                    <span className="text-xs text-slate-400 font-medium whitespace-nowrap">{t("توقيت القاهرة:")}</span>
+                    <span className="text-xs font-mono font-bold text-we-purple whitespace-nowrap">{time}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold" dir="rtl">
-                    <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>سيرفر WE متصل</span>
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-100 text-xs font-semibold whitespace-nowrap shrink-0">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="whitespace-nowrap">{t("سيرفر WE متصل")}</span>
                   </div>
                 </div>
-                <div className="flex flex-row items-center justify-end gap-1.5">
+                <div className="flex items-center gap-1.5 flex-nowrap">
                   <FirebaseConnectionStatus />
                   <OnlineUsersCounter />
                 </div>
@@ -513,7 +527,7 @@ export default function App() {
 
         {/* Global Page Toggles Navigation */}
         <div className="border-t border-slate-50 bg-slate-50/50 p-2">
-          <div className="max-w-md mx-auto flex bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-100" id="navigation-tabs">
+          <div className="max-w-2xl mx-auto flex bg-white/80 backdrop-blur-md p-1.5 rounded-2xl border border-slate-100 flex-wrap justify-center gap-1" id="navigation-tabs">
             {hasPermission("view_admin") && (
               <button
                 onClick={() => setActiveTab("admin")}
@@ -524,7 +538,7 @@ export default function App() {
                 }`}
               >
                 <ShieldAlert className="w-4 h-4 shrink-0 text-we-pink" />
-                <span>لوحة الإدارة</span>
+                <span>{t("لوحة الإدارة")}</span>
               </button>
             )}
 
@@ -538,7 +552,7 @@ export default function App() {
                 }`}
               >
                 <Calendar className="w-4 h-4 shrink-0 text-we-pink" />
-                <span>الأداء الأسبوعي</span>
+                <span>{t("الأداء الأسبوعي")}</span>
               </button>
             )}
 
@@ -552,7 +566,7 @@ export default function App() {
                 }`}
               >
                 <Users className="w-4 h-4 shrink-0 text-we-pink" />
-                <span>تقييم التيم ليدر</span>
+                <span>{t("تقييم التيم ليدر")}</span>
               </button>
             )}
 
@@ -566,7 +580,7 @@ export default function App() {
                 }`}
               >
                 <BarChart3 className="w-4 h-4 shrink-0 text-we-pink" />
-                <span>تقارير تشغيل الفرق</span>
+                <span>{t("تقارير تشغيل الفرق")}</span>
               </button>
             )}
 
@@ -580,7 +594,7 @@ export default function App() {
                 }`}
               >
                 <TrendingUp className="w-4 h-4 shrink-0 text-we-pink" />
-                <span>التقييم الفردي</span>
+                <span>{t("التقييم الفردي")}</span>
               </button>
             )}
           </div>

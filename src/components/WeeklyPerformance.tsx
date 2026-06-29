@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Employee, KPITargets, WeeklyMetrics } from "../types";
+import { useLanguage } from "../lib/LanguageContext";
 import { Search, Calendar as CalendarIcon, Filter, LayoutDashboard, Users, UserCircle, SortAsc, ChevronRight, AlertTriangle, User, Phone, FileText, MapPin, Printer, GitCompare, X, ExternalLink } from "lucide-react";
 import { motion } from "motion/react";
 import { MonthYearSelector } from "./MonthYearSelector";
@@ -12,6 +13,7 @@ interface WeeklyPerformanceProps {
 }
 
 export default function WeeklyPerformance({ employees: rawEmployees, targetsChat, targetsUniversal }: WeeklyPerformanceProps) {
+  const { t, isRtl } = useLanguage();
   // Only include non-archived agent employees
   const employees = useMemo(() => rawEmployees.filter(emp => {
     if (emp.isArchived) return false;
@@ -190,12 +192,12 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
   }, [activeWeeklyRecord]);
 
   const weekLabels: Record<string, string> = {
-    all: "مجمع (الكل)",
-    week1: "الأسبوع الأول",
-    week2: "الأسبوع الثاني",
-    week3: "الأسبوع الثالث",
-    week4: "الأسبوع الرابع",
-    compare: "مقارنة الأداء"
+    all: t("مجمع (الكل)"),
+    week1: t("الأسبوع الأول"),
+    week2: t("الأسبوع الثاني"),
+    week3: t("الأسبوع الثالث"),
+    week4: t("الأسبوع الرابع"),
+    compare: t("مقارنة الأداء")
   };
 
   const compareData = useMemo(() => {
@@ -246,10 +248,10 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
       return 0;
     };
     return [
-      { name: "الأسبوع 1", TNPS: getVal(activeWeeklyRecord.weeks.week1?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week1?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week1?.ttb), BB: getVal(activeWeeklyRecord.weeks.week1?.bb) },
-      { name: "الأسبوع 2", TNPS: getVal(activeWeeklyRecord.weeks.week2?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week2?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week2?.ttb), BB: getVal(activeWeeklyRecord.weeks.week2?.bb) },
-      { name: "الأسبوع 3", TNPS: getVal(activeWeeklyRecord.weeks.week3?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week3?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week3?.ttb), BB: getVal(activeWeeklyRecord.weeks.week3?.bb) },
-      { name: "الأسبوع 4", TNPS: getVal(activeWeeklyRecord.weeks.week4?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week4?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week4?.ttb), BB: getVal(activeWeeklyRecord.weeks.week4?.bb) },
+      { name: t("الأسبوع 1"), TNPS: getVal(activeWeeklyRecord.weeks.week1?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week1?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week1?.ttb), BB: getVal(activeWeeklyRecord.weeks.week1?.bb) },
+      { name: t("الأسبوع 2"), TNPS: getVal(activeWeeklyRecord.weeks.week2?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week2?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week2?.ttb), BB: getVal(activeWeeklyRecord.weeks.week2?.bb) },
+      { name: t("الأسبوع 3"), TNPS: getVal(activeWeeklyRecord.weeks.week3?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week3?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week3?.ttb), BB: getVal(activeWeeklyRecord.weeks.week3?.bb) },
+      { name: t("الأسبوع 4"), TNPS: getVal(activeWeeklyRecord.weeks.week4?.tnps), FCR: getVal(activeWeeklyRecord.weeks.week4?.fcr), TTB: getVal(activeWeeklyRecord.weeks.week4?.ttb), BB: getVal(activeWeeklyRecord.weeks.week4?.bb) },
     ];
   }, [activeWeeklyRecord, activeWeekTab]);
 
@@ -376,11 +378,11 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
     
     if (isAnswered) {
       return (
-        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right flex flex-col justify-between" dir="rtl">
+        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"} flex flex-col justify-between`} dir={isRtl ? "rtl" : "ltr"}>
           <div>
             <div className="flex justify-between items-start mb-2">
               <span className="px-2.5 py-1 text-[10px] rounded-full font-semibold text-slate-500 bg-slate-100">
-                إجمالي
+                {t("إجمالي")}
               </span>
               <span className="text-slate-400 text-xs font-semibold">{title}</span>
             </div>
@@ -392,11 +394,11 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
 
     const { color, text, bg } = checkTarget(metric, value, lob);
     return (
-      <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right flex flex-col justify-between" dir="rtl">
+      <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"} flex flex-col justify-between`} dir={isRtl ? "rtl" : "ltr"}>
         <div>
           <div className="flex justify-between items-start mb-2">
             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${color}`}>
-              الهدف: {text}
+              {t("الهدف:")} {text}
             </span>
             <span className="text-slate-400 text-xs font-semibold">{title}</span>
           </div>
@@ -412,44 +414,44 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 print:block" id="weekly-main-grid" dir="rtl">
+    <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 print:block ${isRtl ? "text-right" : "text-left"}`} id="weekly-main-grid" dir={isRtl ? "rtl" : "ltr"}>
       {/* Search Sidebar Column */}
-      <div className="lg:col-span-4 space-y-6 order-1 lg:order-2 print:hidden" id="weekly-search-column">
+      <div className={`lg:col-span-4 space-y-6 print:hidden ${isRtl ? "order-1 lg:order-2" : "order-2 lg:order-1"}`} id="weekly-search-column">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" id="weekly-search-box">
-          <h2 className="text-lg font-display font-semibold text-slate-800 mb-4 flex items-center gap-2 font-black">
+          <h2 className={`text-lg font-display font-semibold text-slate-800 mb-4 flex items-center gap-2 font-black ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
             <Search className="w-5 h-5 text-indigo-500" />
-            البحث عن موظف
+            {t("البحث عن موظف")}
           </h2>
           
           <div className="relative mb-5">
             <input
               type="text"
-              placeholder="اكتب اسم الموظف أو الكود (ID) ..."
+              placeholder={t("اكتب اسم الموظف أو الكود (ID) ...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pr-10 pl-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-sans"
-              dir="rtl"
+              className={`w-full py-3 bg-slate-50 border border-slate-100 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-sans ${isRtl ? "pr-10 pl-4 text-right" : "pl-10 pr-4 text-left"}`}
+              dir={isRtl ? "rtl" : "ltr"}
             />
-            <Search className="absolute right-3.5 top-3.5 w-5 h-5 text-slate-400" />
+            <Search className={`absolute top-3.5 w-5 h-5 text-slate-400 ${isRtl ? "right-3.5" : "left-3.5"}`} />
           </div>
 
           <div className="flex flex-col gap-3 mb-5 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <h3 className="text-xs font-bold text-slate-500 flex items-center gap-1.5"><Filter className="w-3.5 h-3.5" /> تصفية النتائج</h3>
+            <h3 className={`text-xs font-bold text-slate-500 flex items-center gap-1.5 ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}><Filter className="w-3.5 h-3.5" /> {t("تصفية النتائج") || "تصفية النتائج"}</h3>
             <div className="grid grid-cols-2 gap-2">
               <select value={lobFilter} onChange={(e) => setLobFilter(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-2 py-1.5 outline-none focus:border-indigo-500">
-                <option value="All">LOB (الكل)</option>
+                <option value="All">LOB ({t("الكل") || "الكل"})</option>
                 {lobs.filter(l => l !== "All").map(l => <option key={l} value={l}>{l}</option>)}
               </select>
               <select value={tlFilter} onChange={(e) => setTlFilter(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-2 py-1.5 outline-none focus:border-indigo-500">
-                <option value="All">TL (الكل)</option>
+                <option value="All">TL ({t("الكل") || "الكل"})</option>
                 {tls.filter(t => t !== "All").map(t => <option key={t} value={t}>{t}</option>)}
               </select>
               <select value={svFilter} onChange={(e) => setSvFilter(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-2 py-1.5 outline-none focus:border-indigo-500">
-                <option value="All">SV (الكل)</option>
+                <option value="All">SV ({t("الكل") || "الكل"})</option>
                 {svs.filter(s => s !== "All").map(s => <option key={s} value={s}>{s}</option>)}
               </select>
               <select value={bottom20Metric} onChange={(e) => setBottom20Metric(e.target.value)} className="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-2 py-1.5 outline-none focus:border-indigo-500">
-                <option value="">Bottom 20% (بدون)</option>
+                <option value="">Bottom 20% ({t("بدون") || "بدون"})</option>
                 <option value="tnps">TNPS</option>
                 <option value="fcr">FCR</option>
                 <option value="aht">AHT</option>
@@ -468,27 +470,27 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                     setSelectedId(emp.id);
                     setSearchQuery("");
                   }}
-                  className={`w-full text-right p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                  className={`w-full p-4 rounded-2xl border transition-all flex justify-between items-center ${isRtl ? "text-right" : "text-left"} ${
                     selectedId === emp.id
                       ? "bg-indigo-950 text-white border-indigo-900 shadow-md"
                       : "bg-slate-50 hover:bg-slate-100/70 text-slate-700 border-transparent"
                   }`}
-                  dir="rtl"
+                  dir={isRtl ? "rtl" : "ltr"}
                 >
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-semibold text-sm truncate">{emp.fullName}</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs opacity-80 font-mono">
+                    <div className={`flex items-center gap-2 mt-1 text-xs opacity-80 font-mono ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
                       <span>ID: {emp.id}</span>
                       <span>•</span>
-                      <span>{emp.newTL.split(" ")[0]}</span>
+                      <span>{emp.newTL ? emp.newTL.split(" ")[0] : t("بدون ليدر")}</span>
                     </div>
                   </div>
-                  <ChevronRight className={`w-5 h-5 ml-1 transition-transform ${selectedId === emp.id ? "rotate-90 text-indigo-400" : "text-slate-400"}`} />
+                  <ChevronRight className={`w-5 h-5 ml-1 transition-transform ${selectedId === emp.id ? "rotate-90 text-indigo-400" : "text-slate-400"} ${isRtl ? "" : "rotate-180"}`} />
                 </button>
               ))
             ) : (
-              <p className="text-center text-slate-400 text-sm py-8" dir="rtl">
-                لا توجد نتائج مطابقة لبحثك.
+              <p className="text-center text-slate-400 text-sm py-8" dir={isRtl ? "rtl" : "ltr"}>
+                {t("لا توجد نتائج مطابقة لبحثك.")}
               </p>
             )}
           </div>
@@ -518,44 +520,44 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div className={`flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <span className="text-slate-100 font-semibold">{currentEmployee.newTL}</span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-[10px]">(TL) قائد الفريق</span>
+                  <div className={`flex items-center gap-2 text-slate-400 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                    <span className="text-[10px]">{t("(TL) قائد الفريق")}</span>
                     <Users className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div className={`flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <span className="text-slate-100 font-semibold">{currentEmployee.newSV}</span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-[10px]">(Supervisor) المشرف</span>
+                  <div className={`flex items-center gap-2 text-slate-400 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                    <span className="text-[10px]">{t("(Supervisor) المشرف")}</span>
                     <User className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div className={`flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <span className="text-slate-100 font-mono">{currentEmployee.mobileNumber || "-"}</span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-[10px]">رقم الموبايل</span>
+                  <div className={`flex items-center gap-2 text-slate-400 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                    <span className="text-[10px]">{t("رقم الموبايل")}</span>
                     <Phone className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div className={`flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <span className="text-slate-100 font-mono">{currentEmployee.nationalId || "-"}</span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-[10px]">الرقم القومي</span>
+                  <div className={`flex items-center gap-2 text-slate-400 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                    <span className="text-[10px]">{t("الرقم القومي")}</span>
                     <FileText className="w-4 h-4" />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                <div className={`flex items-center justify-between text-sm bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <span className="text-slate-100 font-semibold bg-indigo-500/20 text-indigo-300 px-2.5 py-1 rounded-lg border border-indigo-500/20 text-xs">
-                    {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : (currentEmployee.location === "NC" ? "مقر مدينة نصر (NC)" : (currentEmployee.location === "Dokki" ? "مقر الدقي (Dokki)" : (currentEmployee.location || "-")))}
+                    {currentEmployee.location === "WFH" ? t("العمل من المنزل (WFH)") : (currentEmployee.location === "NC" ? t("مقر مدينة نصر (NC)") : (currentEmployee.location === "Dokki" ? t("مقر الدقي (Dokki)") : (currentEmployee.location || "-")))}
                   </span>
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <span className="text-[10px]">موقع العمل</span>
+                  <div className={`flex items-center gap-2 text-slate-400 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                    <span className="text-[10px]">{t("موقع العمل")}</span>
                     <MapPin className="w-4 h-4" />
                   </div>
                 </div>
@@ -570,8 +572,8 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
         {!currentEmployee ? (
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm" id="no-employee">
             <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-display font-medium text-slate-700 mb-2">الرجاء اختيار أحد الموظفين</h3>
-            <p className="text-slate-400 text-sm">استعمل قائمة البحث في الجانب الأيمن لاستعراض تفاصيل الأداء الأسبوعي</p>
+            <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("الرجاء اختيار أحد الموظفين")}</h3>
+            <p className="text-slate-400 text-sm">{t("استعمل قائمة البحث في الجانب الأيمن لاستعراض تفاصيل الأداء الأسبوعي")}</p>
           </div>
         ) : (
           <>
@@ -579,12 +581,12 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4 no-print mb-6">
               <div className="flex flex-wrap gap-2">
                 {[
-                  { id: "all", label: "مجمع (الكل)" },
-                  { id: "week1", label: "الأسبوع الأول" },
-                  { id: "week2", label: "الأسبوع الثاني" },
-                  { id: "week3", label: "الأسبوع الثالث" },
-                  { id: "week4", label: "الأسبوع الرابع" },
-                  { id: "compare", label: "مقارنة الأداء" },
+                  { id: "all", label: t("مجمع (الكل)") },
+                  { id: "week1", label: t("الأسبوع الأول") },
+                  { id: "week2", label: t("الأسبوع الثاني") },
+                  { id: "week3", label: t("الأسبوع الثالث") },
+                  { id: "week4", label: t("الأسبوع الرابع") },
+                  { id: "compare", label: t("مقارنة الأداء") },
                 ].map(tab => (
                   <button
                     key={tab.id}
@@ -599,19 +601,19 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
               </div>
 
               {availableMonths.length > 0 && (
-                <div className="flex items-center gap-3 w-full sm:w-auto justify-end flex-wrap" dir="rtl">
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end flex-wrap" dir={isRtl ? "rtl" : "ltr"}>
                   <button
                     onClick={handlePrintPdf}
                     className="bg-gradient-to-r from-we-pink to-we-pink-light hover:brightness-110 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all no-print shrink-0"
                     id="print-pdf-report-btn-weekly"
-                    title="تصدير الصفحة الحالية لملف PDF"
+                    title={t("تصدير الصفحة الحالية لملف PDF")}
                   >
                     <Printer className="w-4 h-4" />
-                    <span>تصدير PDF</span>
+                    <span>{t("تصدير PDF")}</span>
                   </button>
                   <div className="h-4 w-px bg-slate-200 no-print" />
                   <CalendarIcon className="w-5 h-5 text-indigo-500 shrink-0" />
-                  <span className="text-slate-500 text-xs font-bold">الشهر المراد عرضه:</span>
+                  <span className="text-slate-500 text-xs font-bold">{t("الشهر المراد عرضه:")}</span>
                   <MonthYearSelector
                     value={selectedMonth}
                     onChange={setSelectedMonth}
@@ -626,17 +628,23 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <CalendarIcon className="w-8 h-8 text-slate-300" />
                 </div>
-                <h3 className="text-lg font-display font-medium text-slate-700 mb-2">لا توجد بيانات متاحة لهذا الشهر</h3>
-                <p className="text-slate-400 text-sm">لم يتم تسجيل أداء أسبوعي للموظف <strong>{currentEmployee.fullName}</strong> في شهر <strong>{selectedMonth}</strong></p>
+                <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("لا توجد بيانات متاحة لهذا الشهر")}</h3>
+                <p className="text-slate-400 text-sm">
+                  {isRtl ? (
+                    <>لم يتم تسجيل أداء أسبوعي للموظف <strong>{currentEmployee.fullName}</strong> في شهر <strong>{selectedMonth}</strong></>
+                  ) : (
+                    <>No weekly performance recorded for <strong>{currentEmployee.fullName}</strong> in <strong>{selectedMonth}</strong></>
+                  )}
+                </p>
               </div>
             ) : (
               <div id="pdf-export-content-weekly">
                 {/* Print Header Section (Visible only during printing / PDF generation) */}
-            <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header-weekly">
+            <div className={`hidden print:block ${isRtl ? "text-right" : "text-left"} mb-6 border-b-2 border-slate-900 pb-5`} dir={isRtl ? "rtl" : "ltr"} id="pdf-print-header-weekly">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900 font-display">تقرير الأداء الأسبوعي للموظف</h1>
-                  <p className="text-xs text-slate-500 mt-1">بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)</p>
+                  <h1 className="text-2xl font-bold text-slate-900 font-display">{t("تقرير الأداء الأسبوعي للموظف")}</h1>
+                  <p className="text-xs text-slate-500 mt-1">{t("بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)")}</p>
                 </div>
                 {/* WE logo icon */}
                 <div className="w-14 h-14 bg-[#512588] rounded-full flex items-center justify-center shadow-sm">
@@ -654,27 +662,27 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
               </div>
               <div className="grid grid-cols-2 gap-y-2 gap-x-8 mt-5 pt-3 border-t border-slate-100 text-[12px] font-semibold text-slate-700">
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">اسم الموظف:</span>
+                  <span className="text-slate-400 font-normal">{t("اسم الموظف:")}</span>
                   <span className="text-slate-900 font-black">{currentEmployee.fullName}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">كود الموظف (ID):</span>
+                  <span className="text-slate-400 font-normal">{t("كود الموظف (ID):")}</span>
                   <span className="text-slate-900 font-mono font-bold">{currentEmployee.id}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">قائد الفريق (TL):</span>
+                  <span className="text-slate-400 font-normal">{t("قائد الفريق (TL):")}</span>
                   <span className="text-slate-900">{currentEmployee.newTL}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">المشرف (Supervisor):</span>
+                  <span className="text-slate-400 font-normal">{t("المشرف (Supervisor):")}</span>
                   <span className="text-slate-950">{currentEmployee.newSV}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">الخط (LOB):</span>
+                  <span className="text-slate-400 font-normal">{t("الخط (LOB):")}</span>
                   <span className="text-slate-900 font-bold">{currentEmployee.lob}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">شهر التقرير:</span>
+                  <span className="text-slate-400 font-normal">{t("شهر التقرير:")}</span>
                   <span className="text-slate-900 font-mono font-bold">{selectedMonth}</span>
                 </div>
               </div>
@@ -691,9 +699,9 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                     className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6"
                   >
                     <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                      <h4 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2 justify-end">
+                      <h4 className={`text-slate-800 font-display font-semibold text-sm flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                         <GitCompare className="w-4 h-4 text-indigo-500" />
-                        مقارنة أداء الأسابيع
+                        {t("مقارنة أداء الأسابيع")}
                       </h4>
                       <div className="flex items-center gap-2">
                         <select 
@@ -701,10 +709,10 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                           onChange={(e) => setCompareWeekA(e.target.value as any)}
                           className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
                         >
-                          <option value="week1">الأسبوع الأول</option>
-                          <option value="week2">الأسبوع الثاني</option>
-                          <option value="week3">الأسبوع الثالث</option>
-                          <option value="week4">الأسبوع الرابع</option>
+                          <option value="week1">{t("الأسبوع الأول")}</option>
+                          <option value="week2">{t("الأسبوع الثاني")}</option>
+                          <option value="week3">{t("الأسبوع الثالث")}</option>
+                          <option value="week4">{t("الأسبوع الرابع")}</option>
                         </select>
                         <span className="text-slate-400 font-bold text-xs">VS</span>
                         <select 
@@ -712,10 +720,10 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                           onChange={(e) => setCompareWeekB(e.target.value as any)}
                           className="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2 outline-none focus:border-indigo-500"
                         >
-                          <option value="week1">الأسبوع الأول</option>
-                          <option value="week2">الأسبوع الثاني</option>
-                          <option value="week3">الأسبوع الثالث</option>
-                          <option value="week4">الأسبوع الرابع</option>
+                          <option value="week1">{t("الأسبوع الأول")}</option>
+                          <option value="week2">{t("الأسبوع الثاني")}</option>
+                          <option value="week3">{t("الأسبوع الثالث")}</option>
+                          <option value="week4">{t("الأسبوع الرابع")}</option>
                         </select>
                       </div>
                     </div>
@@ -745,7 +753,7 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
               if (!metrics) {
                 return (
                   <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm">
-                     <p className="text-slate-500">لا توجد بيانات لهذا الأسبوع</p>
+                     <p className="text-slate-500">{t("لا توجد بيانات لهذا الأسبوع")}</p>
                   </div>
                 );
               }
@@ -756,25 +764,25 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6"
                 >
-                  <h4 className="text-slate-800 font-display font-semibold text-sm mb-6 flex items-center gap-2 justify-end">
+                  <h4 className={`text-slate-800 font-display font-semibold text-sm mb-6 flex items-center gap-2 ${isRtl ? "justify-start flex-row" : "justify-end flex-row-reverse"}`}>
                     <LayoutDashboard className="w-4 h-4 text-indigo-500" />
-                    تفاصيل الأداء - {weekLabels[activeWeekTab]}
+                    <span>{t("تفاصيل الأداء")} - {weekLabels[activeWeekTab]}</span>
                   </h4>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    {renderTargetMetricCard("Answered (الردود)", metrics?.answered, "answered", currentEmployee.lob)}
-                    {renderTargetMetricCard("AHT (سرعة الرد)", metrics?.aht, "aht", currentEmployee.lob)}
-                    {renderTargetMetricCard("TNPS (مؤشر التوصية)", metrics?.tnps, "tnps", currentEmployee.lob, true)}
-                    {renderTargetMetricCard("FCR (الحل من أول مرة)", metrics?.fcr, "fcr", currentEmployee.lob, true)}
-                    {renderTargetMetricCard("TTB (الأساسيات)", metrics?.ttb, "ttb", currentEmployee.lob, true)}
-                    {renderTargetMetricCard("BB (الخصومات)", metrics?.bb, "bb", currentEmployee.lob, true)}
+                    {renderTargetMetricCard(t("Answered (الردود)"), metrics?.answered, "answered", currentEmployee.lob)}
+                    {renderTargetMetricCard(t("AHT (سرعة الرد)"), metrics?.aht, "aht", currentEmployee.lob)}
+                    {renderTargetMetricCard(t("TNPS (مؤشر التوصية)"), metrics?.tnps, "tnps", currentEmployee.lob, true)}
+                    {renderTargetMetricCard(t("FCR (الحل من أول مرة)"), metrics?.fcr, "fcr", currentEmployee.lob, true)}
+                    {renderTargetMetricCard(t("TTB (الأساسيات)"), metrics?.ttb, "ttb", currentEmployee.lob, true)}
+                    {renderTargetMetricCard(t("BB (الخصومات)"), metrics?.bb, "bb", currentEmployee.lob, true)}
                   </div>
                   
                   {activeWeekTab === "all" && (
                     <div className="border-t border-slate-100 pt-8 mt-4">
-                      <h4 className="text-slate-800 font-display font-semibold text-sm mb-6 flex items-center gap-2 justify-end">
+                      <h4 className={`text-slate-800 font-display font-semibold text-sm mb-6 flex items-center gap-2 ${isRtl ? "justify-start flex-row" : "justify-end flex-row-reverse"}`}>
                         <GitCompare className="w-4 h-4 text-indigo-500" />
-                        تطور الأداء خلال الشهر
+                        <span>{t("تطور الأداء خلال الشهر")}</span>
                       </h4>
                       <div className="h-72 w-full" dir="ltr">
                         <ResponsiveContainer width="100%" height="100%">
@@ -810,12 +818,12 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-right"
-              dir="rtl"
+              className={`bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative ${isRtl ? "text-right" : "text-left"}`}
+              dir={isRtl ? "rtl" : "ltr"}
             >
               <button 
                 onClick={() => setShowIframeModal(false)}
-                className="absolute top-4 left-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className={`absolute top-4 ${isRtl ? "left-4" : "right-4"} p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors`}
                 type="button"
               >
                 <X className="w-4 h-4" />
@@ -826,21 +834,21 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                   <AlertTriangle className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">تنبيه هام لتصدير التقرير PDF بنجاح</h3>
-                  <p className="text-[10px] text-slate-400 font-medium font-sans">بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية</p>
+                  <h3 className="text-sm font-bold text-slate-800">{t("تنبيه هام لتصدير التقرير PDF بنجاح")}</h3>
+                  <p className="text-[10px] text-slate-400 font-medium font-sans">{t("بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية")}</p>
                 </div>
               </div>
 
               <div className="space-y-4 text-xs leading-relaxed text-slate-600">
                 <p className="bg-amber-50 text-amber-800 p-3 rounded-2xl border border-amber-100 font-medium text-[11px] leading-relaxed">
-                  عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.
+                  {t("عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.")}
                 </p>
 
                 <div className="space-y-2">
-                  <span className="font-bold text-slate-800 block">خطوات بسيطة وسريعة لتصدير PDF:</span>
-                  <ul className="list-decimal list-inside space-y-1.5 pr-1 text-[11px]">
-                    <li>يرجى فتح التطبيق في <strong>علامة تبويب جديدة مستقلة (Open App)</strong> من الزر العلوي في شريط منصة AI Studio.</li>
-                    <li>أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:</li>
+                  <span className="font-bold text-slate-800 block">{t("خطوات بسيطة وسريعة لتصدير PDF:")}</span>
+                  <ul className={`list-decimal list-inside space-y-1.5 ${isRtl ? "pr-1" : "pl-1"} text-[11px]`}>
+                    <li>{t("يرجى فتح التطبيق في علامة تبويب جديدة مستقلة (Open App) من الزر العلوي في شريط منصة AI Studio.")}</li>
+                    <li>{t("أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:")}</li>
                   </ul>
                 </div>
 
@@ -858,12 +866,12 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                     type="button"
                     className="bg-slate-900 text-white rounded-lg px-2.5 py-1 text-[9px] hover:bg-slate-800 font-sans font-bold shrink-0 cursor-pointer"
                   >
-                    نسخ الرابط
+                    {t("نسخ الرابط")}
                   </button>
                 </div>
 
                 <p className="text-[11px] text-slate-400">
-                  بمجرد فتح الرابط في نافذة جديدة، اضغط على زر <span className="font-bold text-we-pink">"تصدير PDF"</span> مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!
+                  {t("بمجرد فتح الرابط في نافذة جديدة، اضغط على زر \"تصدير PDF\" مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!")}
                 </p>
               </div>
 
@@ -875,14 +883,14 @@ export default function WeeklyPerformance({ employees: rawEmployees, targetsChat
                   className="bg-[#512588] hover:bg-[#3d1968] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>فتح التطبيق في نافذة مستقلة</span>
+                  <span>{t("فتح التطبيق في نافذة مستقلة")}</span>
                 </a>
                 <button 
                   onClick={() => setShowIframeModal(false)}
                   type="button"
                   className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-4 py-2 rounded-xl transition-all cursor-pointer"
                 >
-                  إغلاق النافذة
+                  {t("إغلاق النافذة")}
                 </button>
               </div>
             </motion.div>

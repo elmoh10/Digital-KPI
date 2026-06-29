@@ -14,6 +14,7 @@ import { ahtToSeconds, secondsToAht, sortMonths } from "./EmployeeDashboard";
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from "recharts";
+import { useLanguage } from "../lib/LanguageContext";
 
 interface AnalyticsDashboardProps {
   employees: Employee[];
@@ -23,6 +24,7 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({ employees: rawEmployees, targetsChat, targetsUniversal, historicalTargets }: AnalyticsDashboardProps) {
+  const { t, isRtl } = useLanguage();
   // Only include non-archived agent employees in analytics by default
   const employees = useMemo(() => rawEmployees.filter(emp => 
     !emp.isArchived && 
@@ -206,26 +208,26 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
   }, [employees, selectedMonth, selectedTL]);
 
   return (
-    <div className="space-y-6" id="analytics-workspace">
+    <div className="space-y-6" id="analytics-workspace" dir={isRtl ? "rtl" : "ltr"}>
       {/* Filters bar */}
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex justify-between items-center flex-row-reverse no-print" dir="rtl">
-        <div>
-          <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2 justify-end font-bold">
+      <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-5 flex justify-between items-center no-print ${isRtl ? "flex-row-reverse" : "flex-row"}`} dir={isRtl ? "rtl" : "ltr"}>
+        <div className={isRtl ? "text-right" : "text-left"}>
+          <h3 className={`text-slate-800 font-display font-semibold text-sm flex items-center gap-2 font-bold ${isRtl ? "justify-end" : "justify-start"}`}>
             <Filter className="w-5 h-5 text-we-pink" />
-            تقارير وإحصائيات قائد الفريق والتشغيل
+            {t("تقارير وإحصائيات قائد الفريق والتشغيل")}
           </h3>
-          <p className="text-slate-400 text-xs mt-0.5">تقييم جماعي ومؤشرات جودة الأداء العام للشركة</p>
+          <p className="text-slate-400 text-xs mt-0.5">{t("تقييم جماعي ومؤشرات جودة الأداء العام للشركة")}</p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className={`flex items-center gap-4 ${isRtl ? "flex-row-reverse" : "flex-row"}`}>
           <button
             onClick={handlePrintPdf}
             className="bg-gradient-to-r from-we-pink to-we-pink-light hover:brightness-110 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all no-print shrink-0"
             id="print-pdf-report-btn-analytics"
-            title="تصدير الصفحة الحالية لملف PDF"
+            title={t("تصدير الصفحة الحالية لملف PDF")}
           >
             <Printer className="w-4 h-4" />
-            <span>تصدير PDF</span>
+            <span>{t("تصدير PDF")}</span>
           </button>
           
           <div className="h-4 w-px bg-slate-200 no-print" />
@@ -237,7 +239,7 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
               onChange={(e) => setSelectedTL(e.target.value)}
               className="bg-slate-50 border border-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-we-purple font-mono"
             >
-              <option value="All">كل قادة الفرق</option>
+              <option value="All">{t("كل قادة الفرق")}</option>
               {allTLs.map((tl) => (
                 <option key={tl} value={tl}>
                   {tl}
@@ -266,17 +268,17 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
       {!monthStats ? (
         <div className="bg-white rounded-3xl p-16 text-center border border-slate-100 shadow-sm" id="analytics-no-data">
           <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-display font-medium text-slate-700 mb-2">لا توجد بيانات كافية</h3>
-          <p className="text-slate-400 text-sm">الرجاء إدخال بيانات أو رفع شيت تقييم لشهر {selectedMonth} أولاً في لوحة التحكم لمشاهدة التحليل الجماعي.</p>
+          <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("لا توجد بيانات كافية")}</h3>
+          <p className="text-slate-400 text-sm">{t("الرجاء إدخال بيانات أو رفع شيت تقييم لشهر")} {selectedMonth} {t("أولاً في لوحة التحكم لمشاهدة التحليل الجماعي.")}</p>
         </div>
       ) : (
         <div id="pdf-export-content-analytics">
           {/* Print Header Section (Visible only during printing / PDF generation) */}
-          <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header-analytics">
+          <div className={`hidden print:block mb-6 border-b-2 border-slate-900 pb-5 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"} id="pdf-print-header-analytics">
             <div className="flex justify-between items-center">
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 font-display">تقرير إحصائيات وأداء الفرق</h1>
-                <p className="text-xs text-slate-500 mt-1">بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)</p>
+                <h1 className="text-2xl font-bold text-slate-900 font-display">{t("تقرير إحصائيات وأداء الفرق")}</h1>
+                <p className="text-xs text-slate-500 mt-1">{t("بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)")}</p>
               </div>
               {/* WE logo icon */}
               <div className="w-14 h-14 bg-[#512588] rounded-full flex items-center justify-center shadow-sm">
@@ -292,14 +294,14 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                 </svg>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-y-2 gap-x-8 mt-5 pt-3 border-t border-slate-100 text-[12px] font-semibold text-slate-700">
+            <div className={`grid grid-cols-2 gap-y-2 gap-x-8 mt-5 pt-3 border-t border-slate-100 text-[12px] font-semibold text-slate-700 ${isRtl ? "text-right" : "text-left"}`}>
               <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                <span className="text-slate-400 font-normal">شهر التقرير:</span>
+                <span className="text-slate-400 font-normal">{t("شهر التقرير:")}</span>
                 <span className="text-slate-900 font-mono font-bold">{selectedMonth}</span>
               </div>
               <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                <span className="text-slate-400 font-normal">تصفية القادة (TL):</span>
-                <span className="text-slate-900 font-bold">{selectedTL === "All" ? "كافة الفرق (All)" : selectedTL}</span>
+                <span className="text-slate-400 font-normal">{t("تصفية القادة (TL):")}</span>
+                <span className="text-slate-900 font-bold">{selectedTL === "All" ? t("كافة الفرق (All)") : selectedTL}</span>
               </div>
             </div>
           </div>
@@ -307,31 +309,31 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
           {/* Main Analytics Cards Group */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6" id="analytics-grid-cards">
             
-            <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 text-right" dir="rtl">
-              <span className="text-slate-400 text-xs font-semibold block">الموظفين النشطين</span>
+            <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+              <span className="text-slate-400 text-xs font-semibold block">{t("الموظفين النشطين")}</span>
               <p className="text-3xl font-bold font-mono text-slate-800">{monthStats.activeEmpCount}</p>
-              <span className="text-[10px] text-slate-400 block">* الذين يمتلكون سجل تقييم لشهر {selectedMonth}</span>
+              <span className="text-[10px] text-slate-400 block">{t("* الذين يمتلكون سجل تقييم لشهر")} {selectedMonth}</span>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 text-right" dir="rtl">
-              <span className="text-slate-400 text-xs font-semibold block">متوسط الكفاءة العام</span>
+            <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+              <span className="text-slate-400 text-xs font-semibold block">{t("متوسط الكفاءة العام")}</span>
               <p className="text-3xl font-bold font-mono text-we-purple">{monthStats.avgScore.toFixed(1)}%</p>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 justify-end">
+              <div className={`flex items-center gap-1 text-[10px] text-slate-500 ${isRtl ? "justify-end" : "justify-start"}`}>
                 <span className="font-semibold text-emerald-600 font-mono">Chat: {targetsChat.finalScore}% | Univ: {targetsUniversal.finalScore}%</span>
-                <span>المستهدف:</span>
+                <span>{t("المستهدف:")}</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 text-right" dir="rtl">
-              <span className="text-slate-400 text-xs font-semibold block">نسبة نجاح الفريق (KPI)</span>
+            <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+              <span className="text-slate-400 text-xs font-semibold block">{t("نسبة نجاح الفريق (KPI)")}</span>
               <p className="text-3xl font-bold font-mono text-emerald-600">{monthStats.passingRatio.toFixed(0)}%</p>
-              <span className="text-[10px] text-slate-400 block">* الموظفون المحققون للهدف المخصص لخط العمل (LOB)</span>
+              <span className="text-[10px] text-slate-400 block">{t("* الموظفون المحققون للهدف المخصص لخط العمل (LOB)")}</span>
             </div>
 
-            <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 text-right" dir="rtl">
-              <span className="text-slate-400 text-xs font-semibold block">متوسط رضا العملاء (CSI)</span>
+            <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-2 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+              <span className="text-slate-400 text-xs font-semibold block">{t("متوسط رضا العملاء (CSI)")}</span>
               <p className="text-3xl font-bold font-mono text-blue-600">{monthStats.avgCSI.toFixed(1)}%</p>
-              <span className="text-[10px] text-slate-400 block">إجمالي ردود الفعل الإيجابية بالدردشات</span>
+              <span className="text-[10px] text-slate-400 block">{t("إجمالي ردود الفعل الإيجابية بالدردشات")}</span>
             </div>
 
           </div>
@@ -339,12 +341,12 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
             
             {/* Top Performers Podium */}
-            <div className="md:col-span-7 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
+            <div className={`md:col-span-7 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
               <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2">
                 <Award className="w-5 h-5 text-emerald-500" />
-                لوحة شرف الأداء الثلاثية - شهر {selectedMonth}
+                {t("لوحة شرف الأداء الثلاثية - شهر")} {selectedMonth}
               </h3>
-              <p className="text-slate-500 text-xs mb-3">أفضل 3 عناصر حققوا أعلى تقييمات إجمالية متكاملة في هذا الشهر:</p>
+              <p className="text-slate-500 text-xs mb-3">{t("أفضل 3 عناصر حققوا أعلى تقييمات إجمالية متكاملة في هذا الشهر:")}</p>
 
               <div className="space-y-3">
                 {monthStats.topPerformers.map((perf, index) => {
@@ -368,13 +370,13 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                         </span>
                         <div>
                           <p className="font-semibold text-xs text-slate-800">{perf.name}</p>
-                          <span className="text-[10px] text-slate-400">قائد الفريق: {perf.tl}</span>
+                          <span className="text-[10px] text-slate-400">{t("قائد الفريق")}: {perf.tl}</span>
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className={isRtl ? "text-right" : "text-left"}>
                         <span className="text-emerald-700 font-black font-mono text-sm leading-none">{perf.score}%</span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">التقييم الكلي</span>
+                        <span className="text-[9px] text-slate-400 block mt-0.5">{t("التقييم الكلي")}</span>
                       </div>
                     </motion.div>
                   );
@@ -383,17 +385,17 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
             </div>
 
             {/* Team Leader Comparative Breakdown */}
-            <div className="md:col-span-5 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right space-y-4" dir="rtl">
+            <div className={`md:col-span-5 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
               <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2 font-bold">
                 <BarChart3 className="w-5 h-5 text-we-pink" />
-                معدلات الكفاءة حسب قادة الفرق (TL)
+                {t("معدلات الكفاءة حسب قادة الفرق (TL)")}
               </h3>
               
               <div className="space-y-4 pt-2">
                 {tlStats.map((tl, index) => (
                   <div key={tl.name} className="space-y-1">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-700">{tl.name} <span className="font-normal text-slate-400 font-sans text-[10px]">({tl.count} موظف حالي)</span></span>
+                      <span className="font-bold text-slate-700">{tl.name} <span className="font-normal text-slate-400 font-sans text-[10px]">({tl.count} {t(" موظف حالي")})</span></span>
                       <span className="font-bold font-mono text-we-purple">{tl.avgScore.toFixed(1)}%</span>
                     </div>
                     {/* Visual Progress Bar comparison */}
@@ -413,19 +415,19 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
           </div>
 
           {/* Coaching Alert Warnings */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 text-right space-y-3" dir="rtl">
+          <div className={`bg-white rounded-3xl border border-slate-100 p-6 space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
             <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
-              تنبيهات جودة الأداء وحالات الدعم الفني المطلوبة (Coaching Alerts)
+              {t("تنبيهات جودة الأداء وحالات الدعم الفني المطلوبة (Coaching Alerts)")}
             </h3>
-            <p className="text-slate-400 text-xs">مجموعة الموظفين الذين يقل معدلهم العام عن هدف العمل المخصص لخط العمل الخاص بهم وبحاجة لجلسات تطوير أداء:</p>
+            <p className="text-slate-400 text-xs">{t("مجموعة الموظفين الذين يقل معدلهم العام عن هدف العمل المخصص لخط العمل الخاص بهم وبحاجة لجلسات تطوير أداء:")}</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
               {monthStats.needsCoaching.length > 0 ? (
                 monthStats.needsCoaching.map(r => (
                   <div key={r.id} className="p-3 bg-rose-50/50 border border-rose-100/30 rounded-2xl flex justify-between items-center cursor-pointer hover:bg-rose-100 transition-colors" onClick={() => setSelectedEmpId(r.id)}>
-                    <span className="font-mono text-rose-700 font-bold text-xs">{r.score}% :التقييم</span>
-                    <div className="text-right">
+                    <span className="font-mono text-rose-700 font-bold text-xs">{t("التقييم")}: {r.score}%</span>
+                    <div className={isRtl ? "text-right" : "text-left"}>
                       <p className="font-semibold text-xs text-slate-800">{r.name}</p>
                       <span className="text-[9px] text-slate-400">ID: {r.id} • {r.tl.split(" ")[0]}</span>
                     </div>
@@ -433,7 +435,7 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                 ))
               ) : (
                 <div className="col-span-full text-center py-6 text-emerald-600 font-semibold text-xs">
-                  👏 مذهل! لا يوجد موظف تحت خط المستهدف هذا الشهر. جميع الكوادر ناجحة ومستوفية للشروط!
+                  {t("👏 مذهل! لا يوجد موظف تحت خط المستهدف هذا الشهر. جميع الكوادر ناجحة ومستوفية للشروط!")}
                 </div>
               )}
             </div>
@@ -446,14 +448,14 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right" 
-                dir="rtl"
+                className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-6 ${isRtl ? "text-right" : "text-left"}`} 
+                dir={isRtl ? "rtl" : "ltr"}
               >
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-slate-800 font-display font-bold text-sm flex items-center gap-2 justify-end">
+                <div className={`flex justify-between items-center mb-6 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
+                  <div className={isRtl ? "text-right" : "text-left"}>
+                    <h3 className={`text-slate-800 font-display font-bold text-sm flex items-center gap-2 ${isRtl ? "justify-end" : "justify-start"}`}>
                       <LineChartIcon className="w-5 h-5 text-we-purple" />
-                      مقارنة الأداء التاريخي للموظف
+                      {t("مقارنة الأداء التاريخي للموظف")}
                     </h3>
                     <p className="text-slate-500 text-xs font-semibold mt-1">
                       {empChartData.name} <span className="font-mono text-[10px] text-slate-400">({empChartData.id})</span>
@@ -461,9 +463,9 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                   </div>
                   <button 
                     onClick={() => setSelectedEmpId(null)}
-                    className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors"
+                    className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-colors cursor-pointer"
                   >
-                    إغلاق المخطط
+                    {t("إغلاق المخطط")}
                   </button>
                 </div>
 
@@ -480,10 +482,10 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                       <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={10} />
                       <YAxis domain={['auto', 'auto']} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} />
                       <Tooltip 
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', textAlign: 'right', fontSize: '12px', fontWeight: 'bold' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', textAlign: isRtl ? 'right' : 'left', fontSize: '12px', fontWeight: 'bold' }}
                         labelStyle={{ color: '#64748b', marginBottom: '4px' }}
                         itemStyle={{ color: '#512588' }}
-                        formatter={(value: number) => [`${value}%`, 'التقييم']}
+                        formatter={(value: number) => [`${value}%`, t("التقييم")]}
                       />
                       <Area 
                         type="monotone" 
@@ -506,36 +508,36 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                   </ResponsiveContainer>
                 </div>
                 <div className="flex justify-center items-center gap-6 mt-4 text-[10px] font-bold text-slate-500">
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-we-purple"></div>تقييم الموظف</div>
-                  <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded border-b-2 border-dashed border-emerald-500"></div>المستهدف المطلوب</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-we-purple"></div>{t("تقييم الموظف")}</div>
+                  <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 rounded border-b-2 border-dashed border-emerald-500"></div>{t("المستهدف المطلوب")}</div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Full Team Table */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" dir="rtl">
-            <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden" dir={isRtl ? "rtl" : "ltr"}>
+            <div className={`p-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
               <h3 className="text-slate-800 font-display font-semibold text-sm flex items-center gap-2">
                 <Users className="w-5 h-5 text-we-purple" />
-                قائمة الفريق بالكامل
+                {t("قائمة الفريق بالكامل")}
               </h3>
-              <p className="text-slate-400 text-xs mr-2">انقر على أي موظف لعرض المخطط البياني التاريخي لأدائه</p>
-              <span className="mr-auto bg-white px-3 py-1 rounded-full text-xs font-bold text-we-purple border border-slate-200">
-                {monthStats.fullTeamList.length} موظف
+              <p className="text-slate-400 text-xs mr-2">{t("انقر على أي موظف لعرض المخطط البياني التاريخي لأدائه")}</p>
+              <span className={`${isRtl ? "mr-auto" : "ml-auto"} bg-white px-3 py-1 rounded-full text-xs font-bold text-we-purple border border-slate-200`}>
+                {monthStats.fullTeamList.length} {t(" موظف")}
               </span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-right text-sm">
+              <table className={`w-full text-sm ${isRtl ? "text-right" : "text-left"}`}>
                 <thead>
                   <tr className="bg-white border-b border-slate-100 text-slate-500 font-semibold">
-                    <th className="px-6 py-4 whitespace-nowrap">الموظف</th>
-                    <th className="px-6 py-4 whitespace-nowrap">قائد الفريق</th>
-                    <th className="px-6 py-4 whitespace-nowrap">خط العمل (LOB)</th>
+                    <th className="px-6 py-4 whitespace-nowrap">{t("الموظف")}</th>
+                    <th className="px-6 py-4 whitespace-nowrap">{t("قائد الفريق")}</th>
+                    <th className="px-6 py-4 whitespace-nowrap">{t("خط العمل (LOB)")}</th>
                     <th className="px-6 py-4 whitespace-nowrap text-center">AHT</th>
                     <th className="px-6 py-4 whitespace-nowrap text-center">CSI</th>
                     <th className="px-6 py-4 whitespace-nowrap text-center">NPS</th>
-                    <th className="px-6 py-4 whitespace-nowrap text-center">التقييم النهائي</th>
+                    <th className="px-6 py-4 whitespace-nowrap text-center">{t("التقييم النهائي")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -551,7 +553,7 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                         <div className="font-semibold text-slate-800">{emp.name}</div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.id}</div>
                       </td>
-                      <td className="px-6 py-4 text-slate-600 text-xs">{emp.tl || "غير محدد"}</td>
+                      <td className="px-6 py-4 text-slate-600 text-xs">{emp.tl || t("غير محدد")}</td>
                       <td className="px-6 py-4">
                         <span className="inline-flex px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold tracking-wider">
                           {emp.lob}
@@ -585,12 +587,12 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-right"
-            dir="rtl"
+            className={`bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative ${isRtl ? "text-right" : "text-left"}`}
+            dir={isRtl ? "rtl" : "ltr"}
           >
             <button 
               onClick={() => setShowIframeModal(false)}
-              className="absolute top-4 left-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              className={`absolute top-4 ${isRtl ? "left-4" : "right-4"} p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer`}
               type="button"
             >
               <X className="w-4 h-4" />
@@ -601,21 +603,21 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                 <AlertTriangle className="w-5 h-5 text-indigo-600" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-800">تنبيه هام لتصدير التقرير PDF بنجاح</h3>
-                <p className="text-[10px] text-slate-400 font-medium font-sans">بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية</p>
+                <h3 className="text-sm font-bold text-slate-800">{t("تنبيه هام لتصدير التقرير PDF بنجاح")}</h3>
+                <p className="text-[10px] text-slate-400 font-medium font-sans">{t("بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية")}</p>
               </div>
             </div>
 
             <div className="space-y-4 text-xs leading-relaxed text-slate-600">
               <p className="bg-amber-50 text-amber-800 p-3 rounded-2xl border border-amber-100 font-medium text-[11px] leading-relaxed">
-                عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.
+                {t("عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.")}
               </p>
 
               <div className="space-y-2">
-                <span className="font-bold text-slate-800 block">خطوات بسيطة وسريعة لتصدير PDF:</span>
+                <span className="font-bold text-slate-800 block">{t("خطوات بسيطة وسريعة لتصدير PDF:")}</span>
                 <ul className="list-decimal list-inside space-y-1.5 pr-1 text-[11px]">
-                  <li>يرجى فتح التطبيق في <strong>علامة تبويب جديدة مستقلة (Open App)</strong> من الزر العلوي في شريط منصة AI Studio.</li>
-                  <li>أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:</li>
+                  <li>{t("يرجى فتح التطبيق في")} <strong>{t("علامة تبويب جديدة مستقلة (Open App)")}</strong> {t("من الزر العلوي في شريط منصة AI Studio.")}</li>
+                  <li>{t("أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:")}</li>
                 </ul>
               </div>
 
@@ -633,16 +635,16 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                   type="button"
                   className="bg-slate-900 text-white rounded-lg px-2.5 py-1 text-[9px] hover:bg-slate-800 font-sans font-bold shrink-0 cursor-pointer"
                 >
-                  نسخ الرابط
+                  {t("نسخ الرابط")}
                 </button>
               </div>
 
               <p className="text-[11px] text-slate-400">
-                بمجرد فتح الرابط في نافذة جديدة، اضغط على زر <span className="font-bold text-we-pink">"تصدير PDF"</span> مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!
+                {t("بمجرد فتح الرابط في نافذة جديدة، اضغط على زر")} <span className="font-bold text-we-pink">"{t("تصدير PDF")}"</span> {t("مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!")}
               </p>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 flex justify-end gap-2">
+            <div className={`mt-5 pt-3 border-t border-slate-100 flex gap-2 ${isRtl ? "justify-end" : "justify-start"}`}>
               <a
                 href={window.location.href}
                 target="_blank"
@@ -650,14 +652,14 @@ export default function AnalyticsDashboard({ employees: rawEmployees, targetsCha
                 className="bg-[#512588] hover:bg-[#3d1968] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>فتح التطبيق في نافذة مستقلة</span>
+                <span>{t("فتح التطبيق في نافذة مستقلة")}</span>
               </a>
               <button 
                 onClick={() => setShowIframeModal(false)}
                 type="button"
                 className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-4 py-2 rounded-xl transition-all cursor-pointer"
               >
-                إغلاق النافذة
+                {t("إغلاق النافذة")}
               </button>
             </div>
           </motion.div>

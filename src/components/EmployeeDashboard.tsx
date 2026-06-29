@@ -5,6 +5,7 @@
 
 import React, { useState, useMemo } from "react";
 import { Employee, KPITargets, MonthlyPerformance, HistoricalTargets } from "../types";
+import { useLanguage } from "../lib/LanguageContext";
 import { 
   User, Phone, MapPin, Layers, Award, ShieldAlert, CheckCircle2, 
   HelpCircle, Calendar, TrendingUp, AlertTriangle, FileText, 
@@ -68,6 +69,7 @@ export function sortMonths(months: string[]): string[] {
 }
 
 export default function EmployeeDashboard({ employees, targetsChat, targetsUniversal, historicalTargets }: EmployeeDashboardProps) {
+  const { t, isRtl } = useLanguage();
   // Base active employees (excluding leaders-only)
   const activeAgentEmployees = useMemo(() => {
     return employees.filter(emp => {
@@ -259,25 +261,25 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8" id="kpi-main-grid">
+    <div className={`grid grid-cols-1 lg:grid-cols-12 gap-8 ${isRtl ? "text-right" : "text-left"}`} id="kpi-main-grid" dir={isRtl ? "rtl" : "ltr"}>
       {/* Search Sidebar Column */}
       <div className="lg:col-span-4 space-y-6" id="kpi-search-column">
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" id="kpi-search-box">
-          <h2 className="text-lg font-display font-semibold text-slate-800 mb-4 flex items-center gap-2 font-black">
+          <h2 className={`text-lg font-display font-semibold text-slate-800 mb-4 flex items-center gap-2 font-black ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
             <Search className="w-5 h-5 text-we-pink" />
-            البحث عن موظف
+            {t("البحث عن موظف")}
           </h2>
           
           <div className="relative mb-5">
             <input
               type="text"
-              placeholder="اكتب اسم الموظف أو الكود (ID) ..."
+              placeholder={t("اكتب اسم الموظف أو الكود (ID) ...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-4 pr-10 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-we-purple text-right text-sm font-sans"
-              dir="rtl"
+              className={`w-full ${isRtl ? "pr-10 pl-4 text-right" : "pl-10 pr-4 text-left"} py-3 bg-slate-50 border border-slate-100 rounded-2xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-we-purple text-sm font-sans`}
+              dir={isRtl ? "rtl" : "ltr"}
             />
-            <Search className="absolute right-3.5 top-3.5 w-5 h-5 text-slate-400" />
+            <Search className={`absolute top-3.5 w-5 h-5 text-slate-400 ${isRtl ? "right-3.5 left-auto" : "left-3.5 right-auto"}`} />
           </div>
 
           <div className="space-y-2 max-h-[290px] overflow-y-auto pr-1" id="kpi-employee-list">
@@ -289,28 +291,28 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                     setSelectedId(emp.id);
                     setSearchQuery("");
                   }}
-                  className={`w-full text-right p-4 rounded-2xl border transition-all flex justify-between items-center ${
+                  className={`w-full p-4 rounded-2xl border transition-all flex justify-between items-center ${isRtl ? "text-right" : "text-left"} ${
                     selectedId === emp.id
                       ? "bg-we-purple text-white border-we-purple shadow-md"
                       : "bg-slate-50 hover:bg-slate-100/70 text-slate-700 border-transparent"
                   }`}
-                  dir="rtl"
+                  dir={isRtl ? "rtl" : "ltr"}
                   id={`emp-btn-${emp.id}`}
                 >
                   <div className="flex-1 min-w-0 pr-2">
                     <p className="font-semibold text-sm truncate">{emp.fullName}</p>
-                    <div className="flex items-center gap-2 mt-1 text-xs opacity-80 font-mono">
+                    <div className={`flex items-center gap-2 mt-1 text-xs opacity-80 font-mono ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
                       <span>ID: {emp.id}</span>
                       <span>•</span>
-                      <span>{emp.newTL ? emp.newTL.split(" ")[0] : "بدون ليدر"}</span>
+                      <span>{emp.newTL ? emp.newTL.split(" ")[0] : t("بدون ليدر")}</span>
                     </div>
                   </div>
-                  <ChevronRight className={`w-5 h-5 ml-1 transition-transform ${selectedId === emp.id ? "rotate-90 text-we-pink" : "text-slate-400"}`} />
+                  <ChevronRight className={`w-5 h-5 ml-1 transition-transform ${selectedId === emp.id ? "rotate-90 text-we-pink" : "text-slate-400"} ${isRtl ? "" : "rotate-180"}`} />
                 </button>
               ))
             ) : (
-              <p className="text-center text-slate-400 text-sm py-8" dir="rtl">
-                لا توجد نتائج مطابقة لبحثك.
+              <p className="text-center text-slate-400 text-sm py-8" dir={isRtl ? "rtl" : "ltr"}>
+                {t("لا توجد نتائج مطابقة لبحثك.")}
               </p>
             )}
           </div>
@@ -324,7 +326,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
             className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"
             id="employee-quick-card"
           >
-            <div className="bg-slate-900 p-6 text-white text-right relative overflow-hidden" dir="rtl">
+            <div className={`bg-slate-900 p-6 text-white relative overflow-hidden ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-slate-800 rounded-full opacity-40 blur-xl"></div>
               <div className="relative z-10">
                 <span className="bg-emerald-500/20 text-emerald-300 text-xs px-3 py-1 rounded-full border border-emerald-500/30 font-medium">
@@ -337,50 +339,50 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
               </div>
             </div>
 
-            <div className="p-6 space-y-4 text-right" dir="rtl">
+            <div className={`p-6 space-y-4 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
               <div className="flex justify-between items-center py-2.5 border-b border-slate-50">
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <Users className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-400 text-xs">قائد الفريق (TL)</span>
+                  <span className="text-slate-400 text-xs">{t("قائد الفريق (TL)")}</span>
                 </div>
                 <span className="font-semibold text-slate-700 text-sm">{currentEmployee.newTL}</span>
               </div>
 
               <div className="flex justify-between items-center py-2.5 border-b border-slate-50">
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <User className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-400 text-xs">المشرف (Supervisor)</span>
+                  <span className="text-slate-400 text-xs">{t("المشرف (SV)")}</span>
                 </div>
                 <span className="font-semibold text-slate-700 text-sm">{currentEmployee.newSV}</span>
               </div>
 
               <div className="flex justify-between items-center py-2.5 border-b border-slate-50">
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <Phone className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-400 text-xs">رقم الموبايل</span>
+                  <span className="text-slate-400 text-xs">{t("رقم الهاتف")}</span>
                 </div>
                 <span className="font-mono text-slate-700 text-xs">{currentEmployee.mobileNumber || "-"}</span>
               </div>
 
               <div className="flex justify-between items-center py-2.5 border-b border-slate-50">
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <FileText className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-400 text-xs">الرقم القومي</span>
+                  <span className="text-slate-400 text-xs">{t("رقم الهوية")}</span>
                 </div>
                 <span className="font-mono text-slate-700 text-xs">{currentEmployee.nationalId || "-"}</span>
               </div>
 
               <div className="flex justify-between items-center pt-2.5">
-                <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 ${isRtl ? "flex-row" : "flex-row-reverse"}`}>
                   <MapPin className="w-4 h-4 text-slate-400" />
-                  <span className="text-slate-400 text-xs">موقع العمل</span>
+                  <span className="text-slate-400 text-xs">{t("مقر العمل")}</span>
                 </div>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   currentEmployee.location === "WFH" 
                     ? "bg-sky-50 text-sky-600 border border-sky-100" 
                     : (currentEmployee.location === "NC" ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-emerald-50 text-emerald-600 border border-emerald-100")
                 }`}>
-                  {currentEmployee.location === "WFH" ? "العمل من المنزل (WFH)" : (currentEmployee.location === "NC" ? "مقر مدينة نصر (NC)" : "مقر الدقي (Dokki)")}
+                  {currentEmployee.location === "WFH" ? t("العمل من المنزل (WFH)") : (currentEmployee.location === "NC" ? t("مقر مدينة نصر (NC)") : t("مقر الدقي (Dokki)"))}
                 </span>
               </div>
             </div>
@@ -391,19 +393,19 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
       {/* Main KPI Dashboard Area */}
       <div className="lg:col-span-8 space-y-6" id="kpi-dashboard-area">
         {!currentEmployee ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm" id="no-employee">
+          <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm animate-pulse" id="no-employee" dir={isRtl ? "rtl" : "ltr"}>
             <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-display font-medium text-slate-700 mb-2">الرجاء اختيار أحد الموظفين</h3>
-            <p className="text-slate-400 text-sm">استعمل قائمة البحث في الجانب الأيمن لاستعراض تفاصيل أدائه</p>
+            <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("الرجاء اختيار أحد الموظفين")}</h3>
+            <p className="text-slate-400 text-sm">{t("استعمل قائمة البحث في الجانب الأيمن لاستعراض تفاصيل أدائه")}</p>
           </div>
         ) : (
           <div id="pdf-export-content">
             {/* Print Header Section (Visible only during printing / PDF generation) */}
-            <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header">
+            <div className={`hidden print:block mb-6 border-b-2 border-slate-900 pb-5 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"} id="pdf-print-header">
               <div className="flex justify-between items-center">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-900 font-display">تقرير الأداء والتقييم الفردي للموظف</h1>
-                  <p className="text-xs text-slate-500 mt-1">بوابة Digital Chat KPI - قطاع الدعم الفني والدردشة الرقمية (WE)</p>
+                  <h1 className="text-2xl font-bold text-slate-900 font-display">{t("تقرير الأداء والتقييم الفردي للموظف")}</h1>
+                  <p className="text-xs text-slate-500 mt-1">{t("بوابة تقييم الكفاءات والأداء الرقمي لقطاع الدعم الفني والدردشة - المصرية للاتصالات")}</p>
                 </div>
                 {/* WE logo icon */}
                 <div className="w-14 h-14 bg-[#512588] rounded-full flex items-center justify-center shadow-sm">
@@ -421,78 +423,78 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
               </div>
               <div className="grid grid-cols-2 gap-y-2 gap-x-8 mt-5 pt-3 border-t border-slate-100 text-[12px] font-semibold text-slate-700">
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">اسم الموظف:</span>
+                  <span className="text-slate-400 font-normal">{t("الاسم:")}</span>
                   <span className="text-slate-900 font-black">{currentEmployee.fullName}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">كود الموظف (ID):</span>
+                  <span className="text-slate-400 font-normal">{t("كود الموظف:")}</span>
                   <span className="text-slate-900 font-mono font-bold">{currentEmployee.id}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">قائد الفريق (TL):</span>
+                  <span className="text-slate-400 font-normal">{t("قائد الفريق (TL)")}:</span>
                   <span className="text-slate-900">{currentEmployee.newTL}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">المشرف (Supervisor):</span>
+                  <span className="text-slate-400 font-normal">{t("المشرف (SV)")}:</span>
                   <span className="text-slate-950">{currentEmployee.newSV}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">خط العمل (LOB):</span>
+                  <span className="text-slate-400 font-normal">{t("قطاع العمل:")}</span>
                   <span className="text-slate-900">{currentEmployee.lob}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-slate-100 pb-1.5">
-                  <span className="text-slate-400 font-normal">فترة التقرير:</span>
+                  <span className="text-slate-400 font-normal">{t("الشهر المراد عرضه:")}</span>
                   <span className="text-slate-900 font-mono font-bold">{selectedMonth || "-"}</span>
                 </div>
               </div>
             </div>
 
             {/* Control Bar: Month picker & Tab picker */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col sm:flex-row justify-between items-center gap-4" id="kpi-control-bar">
+            <div className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4`} id="kpi-control-bar">
               {/* Tab Selector */}
-              <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full sm:w-auto" id="view-tabs">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full md:w-auto" id="view-tabs">
                 <button
                   onClick={() => setActiveTab("sheet")}
-                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                     activeTab === "sheet" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  كارت الأداء التاريخي (Excel)
+                  {t("كارت الأداء التاريخي (Excel)")}
                 </button>
                 <button
                   onClick={() => setActiveTab("trend")}
-                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                     activeTab === "trend" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  المنحنيات والتحليلات
+                  {t("المنحنيات والتحليلات")}
                 </button>
                 <button
                   onClick={() => setActiveTab("card")}
-                  className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex-1 md:flex-initial px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                     activeTab === "card" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
-                  لوحة الأداء الشهري
+                  {t("لوحة الأداء الشهري")}
                 </button>
               </div>
 
               {/* Month Selector dropdown & Print button */}
-              <div className="flex items-center gap-3 w-full sm:w-auto justify-end flex-wrap" dir="rtl" id="month-selector-group">
+              <div className={`flex items-center gap-3 w-full md:w-auto justify-end flex-wrap`} dir={isRtl ? "rtl" : "ltr"} id="month-selector-group">
                 <button
                   onClick={handlePrintPdf}
                   className="bg-gradient-to-r from-we-pink to-we-pink-light hover:brightness-110 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all no-print shrink-0"
                   id="print-pdf-report-btn"
-                  title="تصدير الصفحة الحالية لملف PDF"
+                  title={t("تصدير الصفحة الحالية لملف PDF")}
                 >
                   <Printer className="w-4 h-4" />
-                  <span>تصدير PDF</span>
+                  <span>{t("تصدير PDF")}</span>
                 </button>
 
                 <div className="h-4 w-px bg-slate-200 no-print" />
 
                 <Calendar className="w-5 h-5 text-we-pink shrink-0" />
-                <span className="text-slate-500 text-xs font-bold">الشهر المراد عرضه:</span>
+                <span className="text-slate-500 text-xs font-bold">{t("الشهر المراد عرضه:")}</span>
                 <MonthYearSelector
                   value={selectedMonth}
                   onChange={setSelectedMonth}
@@ -518,7 +520,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                         {/* Radial Gauge Card */}
                         <div className="md:col-span-5 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center text-center">
-                          <h4 className="text-slate-500 text-xs font-semibold mb-4" dir="rtl">التقييم العام النهائي - {selectedMonth}</h4>
+                          <h4 className="text-slate-500 text-xs font-semibold mb-4" dir={isRtl ? "rtl" : "ltr"}>{t("التقييم العام النهائي - ")}{selectedMonth}</h4>
                           <div className="relative w-36 h-36 flex items-center justify-center">
                             {/* SVG Circle Track */}
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -545,55 +547,63 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                             </svg>
                             <div className="absolute flex flex-col items-center justify-center">
                               <span className="text-3xl font-bold text-slate-800 font-mono">{activePerformance.finalScore}%</span>
-                              <span className="text-[10px] text-slate-400 mt-0.5" dir="rtl">الهدف: {targets.finalScore}%</span>
+                              <span className="text-[10px] text-slate-400 mt-0.5" dir={isRtl ? "rtl" : "ltr"}>{t("الهدف:")} {targets.finalScore}%</span>
                             </div>
                           </div>
                           
-                          <div className="mt-4 flex items-center gap-1.5" dir="rtl">
+                          <div className="mt-4 flex items-center gap-1.5" dir={isRtl ? "rtl" : "ltr"}>
                             {activePerformance.finalScore >= targets.finalScore ? (
                               <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full text-xs font-semibold">
                                 <CheckCircle2 className="w-4 h-4" />
-                                <span>متخطي الهدف (ناجح)</span>
+                                <span>{t("متخطي الهدف (ناجح)")}</span>
                               </div>
                             ) : (
                               <div className="flex items-center gap-1 text-amber-600 bg-amber-50 px-3 py-1 rounded-full text-xs font-semibold">
                                 <AlertTriangle className="w-4 h-4" />
-                                <span>أقل من النسبة المطلوبة</span>
+                                <span>{t("أقل من النسبة المطلوبة")}</span>
                               </div>
                             )}
                           </div>
                         </div>
 
                         {/* Quick Targets Overview */}
-                        <div className="md:col-span-7 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 text-right" dir="rtl">
-                          <h4 className="text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 justify-end">
+                        <div className={`md:col-span-7 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+                          <h4 className={`text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 ${isRtl ? "justify-end flex-row" : "justify-start flex-row-reverse"}`}>
                             <Sparkles className="w-4 h-4 text-emerald-500" />
-                            ملخص أداء الشهر الحالي
+                            {t("ملخص أداء الشهر الحالي")}
                           </h4>
                           <p className="text-slate-500 text-xs leading-relaxed mb-4">
-                            الموظف <strong>{currentEmployee.fullName}</strong> حقق تقييماً إجمالياً بقدره <strong>{activePerformance.finalScore}%</strong> خلال شهر <strong>{selectedMonth}</strong> مقارنة بالهدف المطلوب لمشروع الـ {currentEmployee.lob}. وفيما يلي قراءات أداء مؤشرات الجودة والدعم الفني:
+                            {isRtl ? (
+                              <>
+                                الموظف <strong>{currentEmployee.fullName}</strong> حقق تقييماً إجمالياً بقدره <strong>{activePerformance.finalScore}%</strong> خلال شهر <strong>{selectedMonth}</strong> مقارنة بالهدف المطلوب لمشروع الـ {currentEmployee.lob}. وفيما يلي قراءات أداء مؤشرات الجودة والدعم الفني:
+                              </>
+                            ) : (
+                              <>
+                                The employee <strong>{currentEmployee.fullName}</strong> achieved an overall evaluation score of <strong>{activePerformance.finalScore}%</strong> during the month of <strong>{selectedMonth}</strong> compared to the target required for the {currentEmployee.lob} project. Below are the quality and technical support performance metrics:
+                              </>
+                            )}
                           </p>
 
                           <div className="grid grid-cols-2 gap-3">
                             <div className="bg-slate-50 p-3 rounded-2xl flex flex-col justify-between">
-                              <span className="text-slate-400 text-[10px] block">سرعة الرد الإجمالية (AHT)</span>
+                              <span className="text-slate-400 text-[10px] block">{t("سرعة الرد الإجمالية (AHT)")}</span>
                               <span className="text-slate-800 font-bold text-base font-mono mt-1">{activePerformance.aht}</span>
-                              <span className="text-slate-400 text-[9px] mt-0.5">الهدف: {secondsToAht(targets.ahtSeconds)}</span>
+                              <span className="text-slate-400 text-[9px] mt-0.5">{t("الهدف:")} {secondsToAht(targets.ahtSeconds)}</span>
                             </div>
                             <div className="bg-slate-50 p-3 rounded-2xl flex flex-col justify-between">
-                              <span className="text-slate-400 text-[10px] block">رضا العملاء (CSI)</span>
+                              <span className="text-slate-400 text-[10px] block">{t("رضا العملاء (CSI)")}</span>
                               <span className="text-slate-800 font-bold text-base font-mono mt-1">{activePerformance.csi}%</span>
-                              <span className="text-slate-400 text-[9px] mt-0.5">الهدف: {targets.csi}%</span>
+                              <span className="text-slate-400 text-[9px] mt-0.5">{t("الهدف:")} {targets.csi}%</span>
                             </div>
                             <div className="bg-slate-50 p-3 rounded-2xl flex flex-col justify-between">
-                              <span className="text-slate-400 text-[10px] block">مؤشر التوصية (NPS)</span>
+                              <span className="text-slate-400 text-[10px] block">{t("مؤشر التوصية (NPS)")}</span>
                               <span className="text-slate-800 font-bold text-base font-mono mt-1">{activePerformance.nps}%</span>
-                              <span className="text-slate-400 text-[9px] mt-0.5">الهدف: {targets.nps}%</span>
+                              <span className="text-slate-400 text-[9px] mt-0.5">{t("الهدف:")} {targets.nps}%</span>
                             </div>
                             <div className="bg-slate-50 p-3 rounded-2xl flex flex-col justify-between">
-                              <span className="text-slate-400 text-[10px] block">حل الشكوى أول مرة (FCR)</span>
+                              <span className="text-slate-400 text-[10px] block">{t("حل الشكوى أول مرة (FCR)")}</span>
                               <span className="text-slate-800 font-bold text-base font-mono mt-1">{activePerformance.fcr}%</span>
-                              <span className="text-slate-400 text-[9px] mt-0.5">الهدف: {targets.fcr}%</span>
+                              <span className="text-slate-400 text-[9px] mt-0.5">{t("الهدف:")} {targets.fcr}%</span>
                             </div>
                           </div>
                         </div>
@@ -603,12 +613,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                       <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-6" id="kpi-cards-grid">
                         
                         {/* CSI Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("csi", activePerformance.csi).color}`}>
-                              الهدف: {targets.csi}%
+                              {t("الهدف:")} {targets.csi}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">CSI (رضا العملاء)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("CSI (رضا العملاء)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.csi}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -620,12 +630,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* NPS Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("nps", activePerformance.nps).color}`}>
-                              الهدف: {targets.nps}%
+                              {t("الهدف:")} {targets.nps}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">NPS (مؤشر التوصية)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("NPS (مؤشر التوصية)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.nps}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -637,12 +647,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* FCR Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("fcr", activePerformance.fcr).color}`}>
-                              الهدف: {targets.fcr}%
+                              {t("الهدف:")} {targets.fcr}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">FCR (حل من أول مرة)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("FCR (حل من أول مرة)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.fcr}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -654,12 +664,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* TTB Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("ttb", activePerformance.ttb).color}`}>
-                              الهدف: {targets.ttb}%
+                              {t("الهدف:")} {targets.ttb}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">TTB (أعلى نتيجتين)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("TTB (أعلى نتيجتين)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.ttb}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -671,24 +681,24 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* AHT Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("aht", activePerformance.aht).color}`}>
-                              الهدف: {secondsToAht(targets.ahtSeconds)}
+                              {t("الهدف:")} {secondsToAht(targets.ahtSeconds)}
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">AHT (وقت المعالجة)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("AHT (وقت المعالجة)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.aht}</p>
-                          <span className="text-[10px] text-slate-400 block mt-1">كلما قل الوقت تحسن الأداء</span>
+                          <span className="text-[10px] text-slate-400 block mt-1">{t("كلما قل الوقت تحسن الأداء")}</span>
                         </div>
 
                         {/* CTC (Critical to Customer) Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("ctc", activePerformance.ctc).color}`}>
-                              الهدف: {targets.ctc}%
+                              {t("الهدف:")} {targets.ctc}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">CTC (أهمية للعميل)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("CTC (أهمية للعميل)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.ctc}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -700,12 +710,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* CTB (Critical to Business) Card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 text-right" dir="rtl">
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
                           <div className="flex justify-between items-start">
                             <span className={`px-2.5 py-1 text-[10px] rounded-full font-semibold ${checkTarget("ctb", activePerformance.ctb).color}`}>
-                              الهدف: {targets.ctb}%
+                              {t("الهدف:")} {targets.ctb}%
                             </span>
-                            <span className="text-slate-400 text-xs font-semibold">CTB (أهمية للعمل)</span>
+                            <span className="text-slate-400 text-xs font-semibold">{t("CTB (أهمية للعمل)")}</span>
                           </div>
                           <p className="text-2xl font-bold font-mono text-slate-800">{activePerformance.ctb}%</p>
                           <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -717,30 +727,30 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                         </div>
 
                         {/* Attendance Leaves Quick Overview */}
-                        <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-4 md:col-span-2 text-right" dir="rtl">
-                          <span className="text-slate-400 text-xs font-semibold block">مؤشرات الحضور والغياب (Leaves)</span>
+                        <div className={`bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-4 md:col-span-2 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"}>
+                          <span className="text-slate-400 text-xs font-semibold block">{t("مؤشرات الحضور والغياب (Leaves)")}</span>
                           
                           <div className="grid grid-cols-4 gap-2 text-center">
                             <div className="bg-slate-50 p-2.5 rounded-xl">
-                              <span className="text-[10px] text-slate-400 block">غياب</span>
+                              <span className="text-[10px] text-slate-400 block">{t("غياب")}</span>
                               <span className={`font-mono font-bold text-sm block mt-1 ${activePerformance.absent > 0 ? "text-rose-600" : "text-slate-700"}`}>
                                 {activePerformance.absent}
                               </span>
                             </div>
                             <div className="bg-slate-50 p-2.5 rounded-xl">
-                              <span className="text-[10px] text-slate-400 block">مرضي</span>
+                              <span className="text-[10px] text-slate-400 block">{t("مرضي")}</span>
                               <span className={`font-mono font-bold text-sm block mt-1 ${activePerformance.sick > 0 ? "text-slate-600" : "text-slate-700"}`}>
                                 {activePerformance.sick}
                               </span>
                             </div>
                             <div className="bg-slate-50 p-2.5 rounded-xl">
-                              <span className="text-[10px] text-slate-400 block">طارئ</span>
+                              <span className="text-[10px] text-slate-400 block">{t("طارئ")}</span>
                               <span className="font-mono font-bold text-sm text-slate-700 block mt-1">
                                 {activePerformance.emergency}
                               </span>
                             </div>
                             <div className="bg-slate-50 p-2.5 rounded-xl">
-                              <span className="text-[10px] text-slate-400 block">غير مخطط</span>
+                              <span className="text-[10px] text-slate-400 block">{t("غير مخطط")}</span>
                               <span className={`font-mono font-bold text-sm block mt-1 ${activePerformance.unplanned > 0 ? "text-amber-600" : "text-slate-700"}`}>
                                 {activePerformance.unplanned}
                               </span>
@@ -752,7 +762,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                     </>
                   ) : (
                     <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm" id="no-month-perf">
-                      <p className="text-slate-400 text-sm">لم تسجل بيانات لهذا الشهر بعد</p>
+                      <p className="text-slate-400 text-sm">{t("لم تسجل بيانات لهذا الشهر بعد")}</p>
                     </div>
                   )}
                 </motion.div>
@@ -768,16 +778,16 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Final Score Trend Curve */}
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir="rtl">
-                      <h3 className="text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 font-bold">
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir={isRtl ? "rtl" : "ltr"}>
+                      <h3 className={`text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 font-bold ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
                         <TrendingUp className="w-5 h-5 text-we-purple" />
-                        منحنى تطور التقييم النهائي (%) عبر الأشهر
+                        {t("منحنى تطور التقييم النهائي (%) عبر الأشهر")}
                       </h3>
 
                       <div className="h-64 w-full relative mt-4">
                         {currentEmployee.performance.length < 2 ? (
                           <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
-                            تحتاج إلى إدخال بيانات شهرين على الأقل لرسم المنحنى
+                            {t("تحتاج إلى إدخال بيانات شهرين على الأقل لرسم المنحنى")}
                           </div>
                         ) : (
                           // Render full custom beautiful SVG line chart
@@ -866,16 +876,16 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                     </div>
 
                     {/* CSI & NPS Trend Dual Chart */}
-                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir="rtl">
-                      <h3 className="text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 font-bold">
+                    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir={isRtl ? "rtl" : "ltr"}>
+                      <h3 className={`text-slate-800 font-display font-semibold text-sm mb-4 flex items-center gap-2 font-bold ${isRtl ? "flex-row" : "flex-row-reverse justify-end"}`}>
                         <BarChart3 className="w-5 h-5 text-we-purple" />
-                        مقارنة مؤشرات رضا العملاء (CSI) و (NPS) شهرياً
+                        {t("مقارنة مؤشرات رضا العملاء (CSI) و (NPS) شهرياً")}
                       </h3>
 
                       <div className="h-64 w-full relative mt-4">
                         {currentEmployee.performance.length < 2 ? (
                           <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
-                            تحتاج لبيانات شهرين على الأقل لإظهار المقارنة
+                            {t("تحتاج لبيانات شهرين على الأقل لإظهار المقارنة")}
                           </div>
                         ) : (
                           <svg className="w-full h-full overflow-visible" viewBox="0 0 500 220">
@@ -945,50 +955,50 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                       <div className="flex justify-center gap-6 mt-2 text-xs">
                         <div className="flex items-center gap-1.5">
                           <span className="w-3 h-0.5 bg-blue-600 inline-block border-t border-dashed"></span>
-                          <span className="font-semibold text-slate-700">رضا العملاء CSI</span>
+                          <span className="font-semibold text-slate-700">{t("رضا العملاء CSI")}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="w-3 h-1 bg-pink-600 inline-block"></span>
-                          <span className="font-semibold text-slate-700">مؤشر التوصية NPS</span>
+                          <span className="font-semibold text-slate-700">{t("مؤشر التوصية NPS")}</span>
                         </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Operational Quality and Leaves Trend Summary */}
-                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir="rtl">
-                    <h3 className="text-slate-800 font-display font-semibold text-sm mb-4">
-                      متوسط الأداء التاريخي لهذا الموظف
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6" dir={isRtl ? "rtl" : "ltr"}>
+                    <h3 className={`text-slate-800 font-display font-semibold text-sm mb-4 ${isRtl ? "text-right" : "text-left"}`}>
+                      {t("متوسط الأداء التاريخي لهذا الموظف")}
                     </h3>
                     {statsOverview && (
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                         <div className="bg-slate-50 p-4 rounded-2xl">
-                          <span className="text-slate-400 text-xs block">معدل التقييم التراكمي</span>
+                          <span className="text-slate-400 text-xs block">{t("معدل التقييم التراكمي")}</span>
                           <span className="text-xl font-bold font-mono text-we-purple block mt-1">
                             {statsOverview.avgScore.toFixed(1)}%
                           </span>
-                          <span className="text-[10px] text-slate-400 mt-1 block">مقارنة بالهدف ({targets.finalScore}%)</span>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{t("مقارنة بالهدف")} ({targets.finalScore}%)</span>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-2xl">
-                          <span className="text-slate-400 text-xs block">متوسط وقت المعالجة (AHT)</span>
+                          <span className="text-slate-400 text-xs block">{t("متوسط وقت المعالجة (AHT)")}</span>
                           <span className="text-xl font-bold font-mono text-slate-700 block mt-1">
                             {statsOverview.avgAHTStr}
                           </span>
-                          <span className="text-[10px] text-slate-400 mt-1 block">الهدف المطلوب: {secondsToAht(targets.ahtSeconds)}</span>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{t("الهدف المطلوب:")} {secondsToAht(targets.ahtSeconds)}</span>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-2xl">
-                          <span className="text-slate-400 text-xs block">متوسط رضا العملاء (CSI)</span>
+                          <span className="text-slate-400 text-xs block">{t("متوسط رضا العملاء (CSI)")}</span>
                           <span className="text-xl font-bold font-mono text-blue-600 block mt-1">
                             {statsOverview.avgCSI.toFixed(1)}%
                           </span>
-                          <span className="text-[10px] text-slate-400 mt-1 block">مقارنة بالهدف ({targets.csi}%)</span>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{t("مقارنة بالهدف")} ({targets.csi}%)</span>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-2xl">
-                          <span className="text-slate-400 text-xs block">عدد الأشهر المسجلة</span>
+                          <span className="text-slate-400 text-xs block">{t("عدد الأشهر المسجلة")}</span>
                           <span className="text-xl font-bold font-mono text-slate-700 block mt-1">
-                            {statsOverview.historyCount} شهر
+                            {statsOverview.historyCount} {t("شهر")}
                           </span>
-                          <span className="text-[10px] text-slate-400 mt-1 block">تاريخ رصد الأداء المتواصل</span>
+                          <span className="text-[10px] text-slate-400 mt-1 block">{t("تاريخ رصد الأداء المتواصل")}</span>
                         </div>
                       </div>
                     )}
@@ -1004,35 +1014,35 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                   className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 overflow-hidden"
                   id="tab-excel-sheet"
                 >
-                  <div className="flex justify-between items-center mb-4 flex-row-reverse" dir="rtl">
-                    <div>
-                      <h3 className="text-slate-800 font-display font-semibold text-sm">كارت الأداء التفصيلي الشامل</h3>
-                      <p className="text-slate-400 text-xs mt-0.5">مطابق تماماً لنموذج كشف شيت الاكسيل لمشروعات الشات والدعم الفني</p>
+                  <div className={`flex justify-between items-center mb-4 ${isRtl ? "flex-row-reverse" : "flex-row"}`} dir={isRtl ? "rtl" : "ltr"}>
+                    <div className={isRtl ? "text-right" : "text-left"}>
+                      <h3 className="text-slate-800 font-display font-semibold text-sm">{t("كارت الأداء التفصيلي الشامل")}</h3>
+                      <p className="text-slate-400 text-xs mt-0.5">{t("مطابق تماماً لنموذج كشف شيت الاكسيل لمشروعات الشات والدعم الفني")}</p>
                     </div>
-                    <span className="bg-emerald-500/10 text-emerald-600 text-xs px-3 py-1.5 rounded-full border border-emerald-500/20 font-semibold" dir="rtl">
-                      التقييم التراكمي: {statsOverview?.avgScore.toFixed(0)}%
+                    <span className="bg-emerald-500/10 text-emerald-600 text-xs px-3 py-1.5 rounded-full border border-emerald-500/20 font-semibold" dir={isRtl ? "rtl" : "ltr"}>
+                      {t("التقييم التراكمي:")} {statsOverview?.avgScore.toFixed(0)}%
                     </span>
                   </div>
 
                   {/* Responsive Excel Table wrapper */}
                   <div className="overflow-x-auto border border-slate-200 rounded-2xl" id="excel-table-scroll">
-                    <table className="w-full text-center border-collapse text-xs font-mono" dir="rtl">
+                    <table className="w-full text-center border-collapse text-xs font-mono" dir={isRtl ? "rtl" : "ltr"}>
                       <thead>
                         {/* Primary Dark Headers */}
                         <tr className="bg-slate-900 text-white font-sans text-[11px]">
-                          <th className="py-3 px-3 border-r border-[#334155] font-medium sticky right-0 bg-slate-900 z-10">المؤشرات (KPIs)</th>
+                          <th className={`py-3 px-3 border-r border-[#334155] font-medium sticky ${isRtl ? "right-0" : "left-0"} bg-slate-900 z-10`}>{t("المؤشرات (KPIs)")}</th>
                           {currentEmployee.performance.map((p) => (
                             <th key={p.month} className="py-3 px-2 border-r border-[#334155] font-semibold min-w-[70px] bg-slate-850">
                               {p.month}
                             </th>
                           ))}
-                          <th className="py-3 px-3 bg-emerald-700 text-white font-semibold min-w-[70px]">الهدف</th>
+                          <th className="py-3 px-3 bg-emerald-700 text-white font-semibold min-w-[70px]">{t("الهدف")}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {/* AHT Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">AHT (سرعة المعالجة)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("AHT (سرعة المعالجة)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("aht", p.aht).met;
                             return (
@@ -1046,7 +1056,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* CSI Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">CSI (رضا العملاء)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("CSI (رضا العملاء)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("csi", p.csi).met;
                             return (
@@ -1060,7 +1070,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* NPS Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">NPS (مؤشر التوصية)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("NPS (مؤشر التوصية)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("nps", p.nps).met;
                             return (
@@ -1074,7 +1084,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* FCR Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">FCR (الحل الأول)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("FCR (الحل الأول)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("fcr", p.fcr).met;
                             return (
@@ -1088,7 +1098,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* TTB Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">TTB (أعلى نتيجتين)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("TTB (أعلى نتيجتين)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("ttb", p.ttb).met;
                             return (
@@ -1102,7 +1112,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* CTC Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">CTC (أهمية للعميل)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("CTC (أهمية للعميل)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("ctc", p.ctc).met;
                             return (
@@ -1116,7 +1126,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* CTB Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-slate-800 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">CTB (أهمية للشركة)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-slate-800 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("CTB (أهمية للشركة)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("ctb", p.ctb).met;
                             return (
@@ -1130,7 +1140,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* Absent Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Absent (الغياب أيام)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("Absent (الغياب أيام)")}</td>
                           {currentEmployee.performance.map((p) => (
                             <td key={p.month} className={`py-3 px-2 border-r border-slate-200 font-medium ${p.absent > 0 ? "text-rose-600 font-bold bg-rose-50/20" : "text-slate-500"}`}>
                               {p.absent}
@@ -1141,7 +1151,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* Sick Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Sick (المرضي)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("Sick (المرضي)")}</td>
                           {currentEmployee.performance.map((p) => (
                             <td key={p.month} className={`py-3 px-2 border-r border-slate-200 font-medium ${p.sick > 0 ? "text-amber-600 bg-amber-50/10" : "text-slate-500"}`}>
                               {p.sick}
@@ -1152,7 +1162,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* Emergency Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Emergency (الطارئ)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("Emergency (الطارئ)")}</td>
                           {currentEmployee.performance.map((p) => (
                             <td key={p.month} className="py-3 px-2 border-r border-slate-200 text-slate-500 font-medium">
                               {p.emergency}
@@ -1163,7 +1173,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* Unplanned Row */}
                         <tr className="border-b border-slate-200 hover:bg-slate-50/50">
-                          <td className="py-3 px-3 text-right font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky right-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Unplanned (غير المخطط)</td>
+                          <td className={`py-3 px-3 ${isRtl ? "text-right" : "text-left"} font-sans font-semibold text-indigo-900 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("Unplanned (غير المخطط)")}</td>
                           {currentEmployee.performance.map((p) => (
                             <td key={p.month} className={`py-3 px-2 border-r border-slate-200 font-medium ${p.unplanned > 0 ? "text-amber-600 bg-amber-50/10" : "text-slate-500"}`}>
                               {p.unplanned}
@@ -1174,7 +1184,7 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
 
                         {/* Final Score Row */}
                         <tr className="bg-indigo-50/60 font-sans border-t border-slate-300">
-                          <td className="py-4 px-3 text-right font-display font-black text-slate-900 border-r border-slate-200 sticky right-0 bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">Final Score (التقييم العام)</td>
+                          <td className={`py-4 px-3 ${isRtl ? "text-right" : "text-left"} font-display font-black text-slate-900 border-r border-slate-200 sticky ${isRtl ? "right-0" : "left-0"} bg-indigo-50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]`}>{t("Final Score (التقييم العام)")}</td>
                           {currentEmployee.performance.map((p) => {
                             const isMet = checkTarget("finalscore", p.finalScore).met;
                             return (
@@ -1190,9 +1200,9 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                   </div>
 
                   {/* Footnotes / Instructions matching raw format */}
-                  <div className="mt-4 flex flex-row-reverse justify-between items-center text-[10px] text-slate-400" dir="rtl">
-                    <span>* يتم احتساب Final Score بناء على مدخلات جودة وقت الرد، جودة الرصد، الـ CSI، الـ NPS والخصومات الإدارية.</span>
-                    <span>خط الرصد والهدف الإرشادي العام: 52% لعام 2025/2026</span>
+                  <div className={`mt-4 flex ${isRtl ? "flex-row-reverse" : "flex-row"} justify-between items-center text-[10px] text-slate-400`} dir={isRtl ? "rtl" : "ltr"}>
+                    <span>{t("* يتم احتساب Final Score بناء على مدخلات جودة وقت الرد، جودة الرصد، الـ CSI، الـ NPS والخصومات الإدارية.")}</span>
+                    <span>{t("خط الرصد والهدف الإرشادي العام: 52% لعام 2025/2026")}</span>
                   </div>
                 </motion.div>
               )}
@@ -1208,12 +1218,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative text-right"
-              dir="rtl"
-            >
+              className={`bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative ${isRtl ? "text-right" : "text-left"}`}
+              dir={isRtl ? "rtl" : "ltr"
+            }>
               <button 
                 onClick={() => setShowIframeModal(false)}
-                className="absolute top-4 left-4 p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                className={`absolute top-4 ${isRtl ? "left-4" : "right-4"} p-1.5 rounded-full bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors`}
                 type="button"
               >
                 <X className="w-4 h-4" />
@@ -1224,21 +1234,21 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                   <HelpCircle className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">تنبيه هام لتصدير التقرير PDF بنجاح</h3>
-                  <p className="text-[10px] text-slate-400 font-medium font-sans">بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية</p>
+                  <h3 className="text-sm font-bold text-slate-800">{t("تنبيه هام لتصدير التقرير PDF بنجاح")}</h3>
+                  <p className="text-[10px] text-slate-400 font-medium font-sans">{t("بسبب قيود المتصفح الأمنية داخل بيئة العرض التجريبية")}</p>
                 </div>
               </div>
 
               <div className="space-y-4 text-xs leading-relaxed text-slate-600">
                 <p className="bg-amber-50 text-amber-800 p-3 rounded-2xl border border-amber-100 font-medium text-[11px] leading-relaxed">
-                  عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.
+                  {t("عزيزي الموظف، نظراً لأنك تقوم باستعراض التطبيق داخل نافذة تجريبية مدمجة (iFrame) تابعة لمنصة التطوير، فإن المتصفح يمنع تشغيل الطباعة المباشرة تلقائياً للمحافظة على أمان الصفحة.")}
                 </p>
 
                 <div className="space-y-2">
-                  <span className="font-bold text-slate-800 block">خطوات بسيطة وسريعة لتصدير PDF:</span>
-                  <ul className="list-decimal list-inside space-y-1.5 pr-1 text-[11px]">
-                    <li>يرجى فتح التطبيق في <strong>علامة تبويب جديدة مستقلة (Open App)</strong> من الزر العلوي في شريط منصة AI Studio.</li>
-                    <li>أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:</li>
+                  <span className="font-bold text-slate-800 block">{t("خطوات بسيطة وسريعة لتصدير PDF:")}</span>
+                  <ul className={`list-decimal list-inside space-y-1.5 ${isRtl ? "pr-1" : "pl-1"} text-[11px]`}>
+                    <li>{t("يرجى فتح التطبيق في علامة تبويب جديدة مستقلة (Open App) من الزر العلوي في شريط منصة AI Studio.")}</li>
+                    <li>{t("أو خذ الرابط المباشر للمعاينة أدناه وافتحه في المتصفح الخاص بك:")}</li>
                   </ul>
                 </div>
 
@@ -1256,12 +1266,12 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                     type="button"
                     className="bg-slate-900 text-white rounded-lg px-2.5 py-1 text-[9px] hover:bg-slate-800 font-sans font-bold shrink-0 cursor-pointer"
                   >
-                    نسخ الرابط
+                    {t("نسخ الرابط")}
                   </button>
                 </div>
 
                 <p className="text-[11px] text-slate-400">
-                  بمجرد فتح الرابط في نافذة جديدة، اضغط على زر <span className="font-bold text-we-pink">"تصدير PDF"</span> مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!
+                  {t("بمجرد فتح الرابط في نافذة جديدة، اضغط على زر \"تصدير PDF\" مجدداً وسيفتح لك المتصفح خيارات الحفظ الفوري كملف PDF فائق ومثالي للطباعة!")}
                 </p>
               </div>
 
@@ -1273,14 +1283,14 @@ export default function EmployeeDashboard({ employees, targetsChat, targetsUnive
                   className="bg-[#512588] hover:bg-[#3d1968] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>فتح التطبيق في نافذة مستقلة</span>
+                  <span>{t("فتح التطبيق في نافذة مستقلة")}</span>
                 </a>
                 <button 
                   onClick={() => setShowIframeModal(false)}
                   type="button"
                   className="bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold px-4 py-2 rounded-xl transition-all cursor-pointer"
                 >
-                  إغلاق النافذة
+                  {t("إغلاق النافذة")}
                 </button>
               </div>
             </motion.div>

@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { MonthYearSelector } from "./MonthYearSelector";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 import { secondsToAht } from "./EmployeeDashboard";
+import { useLanguage } from "../lib/LanguageContext";
 
 interface LeaderPerformanceProps {
   employees: Employee[];
@@ -39,6 +40,7 @@ function formatLeaderAHT(val?: string | number): string {
 }
 
 export default function LeaderPerformance({ employees }: LeaderPerformanceProps) {
+  const { t, isRtl } = useLanguage();
   const availableMonths = useMemo(() => {
     const months = new Set<string>();
     employees.forEach(emp => {
@@ -100,41 +102,41 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
   }, [leaders, searchQuery]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" dir={isRtl ? "rtl" : "ltr"}>
       {/* Search and Navigation Bar */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 no-print" dir="rtl">
+      <div className="bg-white rounded-3xl border border-slate-100 p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4 no-print" dir={isRtl ? "rtl" : "ltr"}>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
             <Users className="w-6 h-6" />
           </div>
-          <div>
-            <h1 className="text-xl font-display font-black text-slate-800">تقييم التيم ليدر</h1>
-            <p className="text-xs font-medium text-slate-500">نظام استعراض تقييمات المشرفين الشهرية</p>
+          <div className={isRtl ? "text-right" : "text-left"}>
+            <h1 className="text-xl font-display font-black text-slate-800">{t("تقييم التيم ليدر")}</h1>
+            <p className="text-xs font-medium text-slate-500">{t("نظام استعراض تقييمات المشرفين الشهرية")}</p>
           </div>
         </div>
 
         <div className="w-full md:w-96 relative group">
-          <Search className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+          <Search className={`w-5 h-5 absolute ${isRtl ? "right-4" : "left-4"} top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors`} />
           <input
             type="text"
-            placeholder="ابحث برقم أو اسم الليدر..."
+            placeholder={t("ابحث برقم أو اسم الليدر...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border-2 border-slate-100 pl-4 pr-12 py-3 rounded-2xl text-sm font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
+            className={`w-full bg-slate-50 border-2 border-slate-100 ${isRtl ? "pl-4 pr-12" : "pr-4 pl-12"} py-3 rounded-2xl text-sm font-medium focus:outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-inner`}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sidebar - Leaders List */}
-        <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[700px] no-print order-1 lg:order-2 overflow-hidden" dir="rtl">
+        <div className={`lg:col-span-4 bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col h-[700px] no-print ${isRtl ? "order-1 lg:order-2" : "order-2 lg:order-1"} overflow-hidden`} dir={isRtl ? "rtl" : "ltr"}>
           <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
             <h3 className="font-bold text-slate-800 flex items-center gap-2">
               <UserCircle className="w-5 h-5 text-indigo-500" />
-              قائمة التيم ليدر
+              {t("قائمة التيم ليدر")}
             </h3>
             <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2.5 py-1 rounded-full">
-              {filteredLeaders.length} مشرف
+              {filteredLeaders.length} {t("مشرف")}
             </span>
           </div>
           
@@ -144,11 +146,12 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                 <button
                   key={emp.id}
                   onClick={() => setSelectedId(emp.id)}
-                  className={`w-full text-right p-3 rounded-2xl transition-all flex items-center justify-between group ${
+                  className={`w-full p-3 rounded-2xl transition-all flex items-center justify-between group ${
                     selectedId === emp.id 
                       ? "bg-indigo-50 border border-indigo-100 shadow-sm" 
                       : "hover:bg-slate-50 border border-transparent"
-                  }`}
+                  } ${isRtl ? "text-right" : "text-left"}`}
+                  dir={isRtl ? "rtl" : "ltr"}
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
@@ -156,54 +159,54 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                     }`}>
                       <span className="text-xs font-bold">{emp.id.substring(0, 3)}</span>
                     </div>
-                    <div className="flex-1 min-w-0 pr-2">
+                    <div className={`flex-1 min-w-0 ${isRtl ? "pr-2" : "pl-2"}`}>
                       <p className={`text-sm font-bold whitespace-normal ${selectedId === emp.id ? "text-indigo-950" : "text-slate-700 group-hover:text-indigo-600"}`}>
                         {emp.fullName}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-medium">كود: {emp.id}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">{t("الكود الوظيفي")}: {emp.id}</p>
                     </div>
                   </div>
-                  <ChevronRight className={`w-5 h-5 ml-1 shrink-0 transition-transform ${selectedId === emp.id ? "rotate-90 text-indigo-400" : "text-slate-400"}`} />
+                  <ChevronRight className={`w-5 h-5 ml-1 shrink-0 transition-transform ${selectedId === emp.id ? "rotate-90 text-indigo-400" : "text-slate-400"} ${isRtl ? "" : "rotate-180"}`} />
                 </button>
               ))
             ) : (
-              <p className="text-center text-slate-400 text-sm py-8" dir="rtl">
-                لا توجد نتائج مطابقة لبحثك.
+              <p className="text-center text-slate-400 text-sm py-8" dir={isRtl ? "rtl" : "ltr"}>
+                {t("لا توجد نتائج مطابقة لبحثك.")}
               </p>
             )}
           </div>
         </div>
 
         {/* Main Dashboard Area */}
-        <div className="lg:col-span-8 space-y-6 order-2 lg:order-1 print:col-span-12 print:w-full" id="leader-dashboard-area">
+        <div className={`lg:col-span-8 space-y-6 ${isRtl ? "order-2 lg:order-1" : "order-1 lg:order-2"} print:col-span-12 print:w-full`} id="leader-dashboard-area">
           {!currentLeader ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm" id="no-leader">
               <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-display font-medium text-slate-700 mb-2">الرجاء اختيار أحد المشرفين</h3>
-              <p className="text-slate-400 text-sm">استعمل قائمة البحث لاستعراض تفاصيل الأداء الشهري</p>
+              <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("الرجاء اختيار أحد المشرفين")}</h3>
+              <p className="text-slate-400 text-sm">{t("استعمل قائمة البحث لاستعراض تفاصيل الأداء الشهري")}</p>
             </div>
           ) : (
             <>
               {/* Header Controls */}
               <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex flex-col md:flex-row justify-between items-center gap-4 no-print mb-6">
                 <div className="flex flex-wrap gap-2">
-                   <h2 className="text-lg font-bold text-slate-800">بيانات الأداء الشهري للمشرف</h2>
+                   <h2 className="text-lg font-bold text-slate-800">{t("بيانات الأداء الشهري للمشرف")}</h2>
                 </div>
 
                 {availableMonths.length > 0 && (
-                  <div className="flex items-center gap-3 w-full sm:w-auto justify-end flex-wrap" dir="rtl">
+                  <div className={`flex items-center gap-3 w-full sm:w-auto flex-wrap ${isRtl ? "justify-end" : "justify-start"}`} dir={isRtl ? "rtl" : "ltr"}>
                     <button
                       onClick={handlePrintPdf}
                       className="bg-gradient-to-r from-we-pink to-we-pink-light hover:brightness-110 active:scale-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all no-print shrink-0"
                       id="print-pdf-report-btn-leader"
-                      title="تصدير الصفحة الحالية لملف PDF"
+                      title={t("تصدير الصفحة الحالية لملف PDF")}
                     >
                       <Printer className="w-4 h-4" />
-                      <span>تصدير PDF</span>
+                      <span>{t("تصدير PDF")}</span>
                     </button>
                     <div className="h-4 w-px bg-slate-200 no-print" />
                     <CalendarIcon className="w-5 h-5 text-indigo-500 shrink-0" />
-                    <span className="text-slate-500 text-xs font-bold">الشهر المراد عرضه:</span>
+                    <span className="text-slate-500 text-xs font-bold">{t("الشهر المراد عرضه:")}</span>
                     <MonthYearSelector
                       value={selectedMonth}
                       onChange={setSelectedMonth}
@@ -218,26 +221,26 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                   <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <CalendarIcon className="w-8 h-8 text-slate-300" />
                   </div>
-                  <h3 className="text-lg font-display font-medium text-slate-700 mb-2">لا توجد بيانات متاحة لهذا الشهر</h3>
-                  <p className="text-slate-400 text-sm">لم يتم تسجيل تقييم للمشرف <strong>{currentLeader?.fullName || "غير محدد"}</strong> في شهر <strong>{selectedMonth}</strong></p>
+                  <h3 className="text-lg font-display font-medium text-slate-700 mb-2">{t("لا توجد بيانات متاحة لهذا الشهر")}</h3>
+                  <p className="text-slate-400 text-sm">{t("لم يتم تسجيل تقييم للمشرف")} <strong>{currentLeader?.fullName || t("غير محدد")}</strong> {t("في شهر")} <strong>{selectedMonth}</strong></p>
                 </div>
               ) : (
                 <div id="pdf-export-content-leader">
                   {/* Print Header Section (Visible only during printing / PDF generation) */}
-                  <div className="hidden print:block text-right mb-6 border-b-2 border-slate-900 pb-5" dir="rtl" id="pdf-print-header-leader">
+                  <div className={`hidden print:block mb-6 border-b-2 border-slate-900 pb-5 ${isRtl ? "text-right" : "text-left"}`} dir={isRtl ? "rtl" : "ltr"} id="pdf-print-header-leader">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h1 className="text-3xl font-display font-black text-slate-900 mb-2">تقييم المشرف - {selectedMonth}</h1>
-                        <p className="text-slate-500 font-medium">الشركة المصرية للاتصالات - خدمة العملاء</p>
+                        <h1 className="text-3xl font-display font-black text-slate-900 mb-2">{t("تقييم المشرف - ")}{selectedMonth}</h1>
+                        <p className="text-slate-500 font-medium">{t("الشركة المصرية للاتصالات - خدمة العملاء")}</p>
                       </div>
                       <div className="text-left space-y-1 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <p className="text-xs font-bold text-slate-600 flex items-center justify-end gap-2">
-                          {currentLeader.fullName}
+                        <p className={`text-xs font-bold text-slate-600 flex items-center gap-2 ${isRtl ? "justify-end" : "justify-start"}`}>
                           <User className="w-4 h-4 text-we-pink" />
+                          <span>{currentLeader.fullName}</span>
                         </p>
-                        <p className="text-xs font-bold text-slate-600 flex items-center justify-end gap-2">
-                          {currentLeader.id}
+                        <p className={`text-xs font-bold text-slate-600 flex items-center gap-2 ${isRtl ? "justify-end" : "justify-start"}`}>
                           <FileText className="w-4 h-4 text-indigo-500" />
+                          <span>{currentLeader.id}</span>
                         </p>
                       </div>
                     </div>
@@ -250,7 +253,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                         <User className="w-5 h-5 text-indigo-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">اسم المشرف</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("اسم المشرف")}</p>
                         <p className="text-sm font-bold text-slate-800 break-words" title={currentLeader.fullName}>{currentLeader.fullName}</p>
                       </div>
                     </div>
@@ -259,7 +262,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                         <FileText className="w-5 h-5 text-amber-600" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الكود الوظيفي</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("الكود الوظيفي")}</p>
                         <p className="text-sm font-bold text-slate-800">{currentLeader.id}</p>
                       </div>
                     </div>
@@ -268,8 +271,8 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                         <MapPin className="w-5 h-5 text-emerald-600" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">موقع العمل</p>
-                        <p className="text-sm font-bold text-slate-800">{currentLeader.location}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("موقع العمل")}</p>
+                        <p className="text-sm font-bold text-slate-800">{t(currentLeader.location)}</p>
                       </div>
                     </div>
                     <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm flex items-start gap-4">
@@ -277,7 +280,7 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                         <CalendarIcon className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الشهر المختار</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t("الشهر المختار")}</p>
                         <p className="text-sm font-bold text-slate-800">{selectedMonth}</p>
                       </div>
                     </div>
@@ -370,7 +373,9 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                   {/* Chart for Leader History */}
                   {currentLeader.leaderPerformance && currentLeader.leaderPerformance.length > 1 && (
                     <div className="mt-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm no-print">
-                      <h4 className="text-sm font-bold text-slate-800 mb-6 text-right">تطور الأداء الشهري (التاريخي)</h4>
+                      <h4 className={`text-sm font-bold text-slate-800 mb-6 ${isRtl ? "text-right" : "text-left"}`}>
+                        {t("تطور الأداء الشهري (التاريخي)")}
+                      </h4>
                       <div className="h-64 w-full">
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={currentLeader.leaderPerformance.slice().reverse()} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
@@ -405,9 +410,9 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                 <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <ExternalLink className="w-8 h-8 text-blue-500" />
                 </div>
-                <h3 className="text-xl font-display font-black text-slate-800 mb-2">تصدير PDF</h3>
+                <h3 className="text-xl font-display font-black text-slate-800 mb-2">{t("تصدير PDF")}</h3>
                 <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                  للحصول على أفضل جودة للطباعة والتصدير، يرجى فتح التطبيق في نافذة جديدة بدلاً من نافذة العرض الحالية.
+                  {t("للحصول على أفضل جودة للطباعة والتصدير، يرجى فتح التطبيق في نافذة جديدة بدلاً من نافذة العرض الحالية.")}
                 </p>
                 <div className="space-y-3">
                   <button
@@ -415,16 +420,16 @@ export default function LeaderPerformance({ employees }: LeaderPerformanceProps)
                       window.open(window.location.href, '_blank');
                       setShowIframeModal(false);
                     }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>فتح في نافذة جديدة</span>
+                    <span>{t("فتح في نافذة جديدة")}</span>
                     <ExternalLink className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setShowIframeModal(false)}
-                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all"
+                    className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all cursor-pointer"
                   >
-                    إلغاء
+                    {t("إغلاق النافذة")}
                   </button>
                 </div>
               </motion.div>

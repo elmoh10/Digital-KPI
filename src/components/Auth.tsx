@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Lock, User, AlertCircle } from "lucide-react";
+import { Lock, User, AlertCircle, Globe } from "lucide-react";
 import { SystemUser } from "../types";
+import { useLanguage } from "../lib/LanguageContext";
 
 interface AuthProps {
   onLogin: (role: "admin" | "manager" | "super" | "leader", user?: SystemUser) => void;
@@ -9,6 +10,7 @@ interface AuthProps {
 }
 
 export default function Auth({ onLogin, users }: AuthProps) {
+  const { lang, setLang, t, isRtl } = useLanguage();
   const [view, setView] = useState<"splash" | "login">("splash");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,12 +40,24 @@ export default function Auth({ onLogin, users }: AuthProps) {
     } else if (cleanUsername === "hesham.m148011" && password === "Etch2410#$#") {
       onLogin("admin");
     } else {
-      setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+      setError(t("اسم المستخدم أو كلمة المرور غير صحيحة"));
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-50 flex items-center justify-center z-50 overflow-hidden font-sans">
+    <div className={`fixed inset-0 bg-slate-50 flex items-center justify-center z-50 overflow-hidden font-sans ${isRtl ? "text-right" : "text-left"}`}>
+      {/* Floating Language Switcher */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+          className="px-3 py-2 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-we-purple font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm font-sans"
+          title={lang === "ar" ? "Switch to English" : "التحويل للغة العربية"}
+        >
+          <Globe className="w-4 h-4 text-we-purple shrink-0" />
+          <span>{lang === "ar" ? "English" : "العربية"}</span>
+        </button>
+      </div>
+
       <AnimatePresence mode="wait">
         {view === "splash" && (
           <motion.div
@@ -97,7 +111,7 @@ export default function Auth({ onLogin, users }: AuthProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="w-full max-w-md px-6 py-8 bg-white border border-slate-100 shadow-xl rounded-3xl"
-            dir="rtl"
+            dir={isRtl ? "rtl" : "ltr"}
           >
             <div className="flex flex-col items-center mb-8">
               <div className="w-20 h-20 mb-4">
@@ -112,8 +126,8 @@ export default function Auth({ onLogin, users }: AuthProps) {
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-black text-[#512588]">تسجيل الدخول</h2>
-              <p className="text-slate-500 text-sm mt-1">بوابة تقييم الكفاءات والأداء الرقمي</p>
+              <h2 className="text-2xl font-black text-[#512588]">{t("تسجيل الدخول")}</h2>
+              <p className="text-slate-500 text-sm mt-1">{t("بوابة تقييم الكفاءات والأداء الرقمي")}</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
@@ -129,34 +143,34 @@ export default function Auth({ onLogin, users }: AuthProps) {
               )}
 
               <div>
-                <label className="block text-slate-700 text-sm font-bold mb-2">اسم المستخدم</label>
+                <label className="block text-slate-700 text-sm font-bold mb-2">{t("اسم المستخدم")}</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                  <div className={`absolute inset-y-0 flex items-center pointer-events-none text-slate-400 ${isRtl ? "right-0 pr-3" : "left-0 pl-3"}`}>
                     <User className="w-5 h-5" />
                   </div>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => { setUsername(e.target.value); setError(""); }}
-                    className="w-full pl-4 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d11270] focus:border-transparent text-slate-900 transition-all font-mono"
-                    placeholder="أدخل اسم المستخدم"
+                    className={`w-full py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d11270] focus:border-transparent text-slate-900 transition-all font-mono ${isRtl ? "pl-4 pr-11 text-right" : "pr-4 pl-11 text-left"}`}
+                    placeholder={t("أدخل اسم المستخدم")}
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-slate-700 text-sm font-bold mb-2">كلمة المرور</label>
+                <label className="block text-slate-700 text-sm font-bold mb-2">{t("كلمة المرور")}</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400">
+                  <div className={`absolute inset-y-0 flex items-center pointer-events-none text-slate-400 ${isRtl ? "right-0 pr-3" : "left-0 pl-3"}`}>
                     <Lock className="w-5 h-5" />
                   </div>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                    className="w-full pl-4 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d11270] focus:border-transparent text-slate-900 transition-all font-mono"
-                    placeholder="أدخل كلمة المرور"
+                    className={`w-full py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#d11270] focus:border-transparent text-slate-900 transition-all font-mono ${isRtl ? "pl-4 pr-11 text-right" : "pr-4 pl-11 text-left"}`}
+                    placeholder={t("أدخل كلمة المرور")}
                     required
                   />
                 </div>
@@ -164,9 +178,9 @@ export default function Auth({ onLogin, users }: AuthProps) {
 
               <button
                 type="submit"
-                className="w-full bg-[#512588] hover:bg-[#d11270] text-white font-bold py-3 px-4 rounded-xl transition-colors mt-6 shadow-md shadow-[#512588]/20 flex items-center justify-center gap-2"
+                className="w-full bg-[#512588] hover:bg-[#d11270] text-white font-bold py-3 px-4 rounded-xl transition-colors mt-6 shadow-md shadow-[#512588]/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>تسجيل الدخول</span>
+                <span>{t("تسجيل الدخول")}</span>
               </button>
             </form>
           </motion.div>
