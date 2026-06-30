@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Bell, Check, Info, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Bell, Check, Info, AlertTriangle, CheckCircle2, ShieldAlert, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { subscribeToNotifications, markNotificationAsRead } from '../lib/firebase';
+import { subscribeToNotifications, markNotificationAsRead, deleteNotification, clearAllNotifications } from '../lib/firebase';
 import { AppNotification, SystemUser } from '../types';
 
 interface NotificationsPopoverProps {
@@ -48,6 +48,8 @@ export default function NotificationsPopover({ currentUser }: NotificationsPopov
     return notifications.filter(n => !n.readBy.includes(currentUser.id)).length;
   }, [notifications, currentUser.id]);
 
+  const isAdmin = currentUser.role === "admin" || currentUser.role === "super" || currentUser.role === "manager";
+
   const handleMarkAsRead = (id: string) => {
     markNotificationAsRead(id, currentUser.id);
   };
@@ -58,6 +60,14 @@ export default function NotificationsPopover({ currentUser }: NotificationsPopov
         markNotificationAsRead(n.id, currentUser.id);
       }
     });
+  };
+
+  const handleClearAll = async () => {
+    await clearAllNotifications(notifications.map(n => n.id));
+  };
+
+  const handleDeleteNotif = async (id: string) => {
+    await deleteNotification(id);
   };
 
   const getIcon = (type: string) => {
@@ -100,14 +110,28 @@ export default function NotificationsPopover({ currentUser }: NotificationsPopov
                 <Bell className="w-4 h-4 text-we-purple" />
                 الإشعارات
               </h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="text-[10px] sm:text-xs text-we-purple hover:text-we-pink transition-colors font-semibold"
-                >
-                  تحديد الكل كمقروء
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-[10px] sm:text-xs text-we-purple hover:text-we-pink transition-colors font-semibold"
+                  >
+                    تحديد الكل كمقروء
+                  </button>
+                )}
+                {isAdmin && notifications.length > 0 && (
+                  <>
+                    {unreadCount > 0 && <span className="text-slate-200 text-xs">|</span>}
+                    <button
+                      onClick={handleClearAll}
+                      className="text-[10px] sm:text-xs text-rose-500 hover:text-rose-700 transition-colors font-semibold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      مسح الكل
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto">
@@ -144,15 +168,26 @@ export default function NotificationsPopover({ currentUser }: NotificationsPopov
                             <span className="text-[10px] text-slate-400 font-mono">
                               {new Date(notif.timestamp).toLocaleString("ar-EG")}
                             </span>
-                            {!isRead && (
-                              <button
-                                onClick={() => handleMarkAsRead(notif.id)}
-                                className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors"
-                                title="تحديد كمقروء"
-                              >
-                                <Check className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {!isRead && (
+                                <button
+                                  onClick={() => handleMarkAsRead(notif.id)}
+                                  className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="تحديد كمقروء"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteNotif(notif.id)}
+                                  className="w-6 h-6 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="حذف الإشعار"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

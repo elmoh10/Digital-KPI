@@ -372,3 +372,32 @@ export async function markNotificationAsRead(notifId: string, userId: string) {
     console.warn("Error marking notification as read", error);
   }
 }
+
+/**
+ * Delete a specific notification by ID
+ */
+export async function deleteNotification(notifId: string) {
+  try {
+    const notifRef = doc(db, "notifications", notifId);
+    await deleteDoc(notifRef);
+  } catch (error) {
+    console.warn("Error deleting notification", error);
+  }
+}
+
+/**
+ * Clear all notifications
+ */
+export async function clearAllNotifications(notifIds: string[]) {
+  try {
+    const batch = writeBatch(db);
+    notifIds.forEach((id) => {
+      const notifRef = doc(db, "notifications", id);
+      batch.delete(notifRef);
+    });
+    await batch.commit();
+  } catch (error) {
+    console.warn("Error clearing notifications", error);
+  }
+}
+
